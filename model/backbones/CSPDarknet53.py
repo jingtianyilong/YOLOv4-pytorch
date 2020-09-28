@@ -68,7 +68,7 @@ class CSPBlock(nn.Module):
         )
 
         self.activation = activate_name[residual_activation]
-        self.attention = cfg.ATTENTION["TYPE"]
+        self.attention = cfg.ATTENTION
         if self.attention == 'SEnet':self.attention_module = SEModule(out_channels)
         elif self.attention == 'CBAM':self.attention_module = CBAM(out_channels)
         else: self.attention = None

@@ -17,7 +17,7 @@ import utils.tools as tools
 
 
 class Build_Dataset(Dataset):
-    def __init__(self, anno_file_type, img_size=416):
+    def __init__(self, anno_file, anno_file_type, img_size=416):
         self.img_size = img_size  # For Multi-training
         if cfg.TRAIN.DATA_TYPE == 'VOC':
             self.classes = cfg.VOC_DATA["CLASSES"]
@@ -27,7 +27,7 @@ class Build_Dataset(Dataset):
             self.classes = cfg.Customer_DATA["CLASSES"]
         self.num_classes = len(self.classes)
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
-        self.__annotations = self.__load_annotations(anno_file_type)
+        self.__annotations = self.__load_annotations(anno_file, anno_file_type)
 
     def __len__(self):
         return  len(self.__annotations)
@@ -60,13 +60,12 @@ class Build_Dataset(Dataset):
         return img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
 
-    def __load_annotations(self, anno_type):
+    def __load_annotations(self, anno_file, anno_type):
 
         assert anno_type in ['train', 'test'], "You must choice one of the 'train' or 'test' for anno_type parameter"
-        anno_path = os.path.join(cfg.PROJECT_PATH, anno_type+"_annotation.txt")
-        with open(anno_path, 'r') as f:
+        with open(anno_file, 'r') as f:
             annotations = list(filter(lambda x:len(x)>0, f.readlines()))
-        assert len(annotations)>0, "No images found in {}".format(anno_path)
+        assert len(annotations)>0, "No images found in {}".format(anno_file)
 
         return annotations
 
@@ -79,7 +78,7 @@ class Build_Dataset(Dataset):
         """
         anno = annotation.strip().split(' ')
 
-        img_path = anno[0]
+        img_path = os.path.join(cfg.DATA_PATH, anno[0)])
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
@@ -187,7 +186,7 @@ class Build_Dataset(Dataset):
 
 if __name__ == "__main__":
 
-    voc_dataset = Build_Dataset(anno_file_type="train", img_size=448)
+    yolo_dataset = Build_Dataset(anno_file_type="train", img_size=608)
     dataloader = DataLoader(voc_dataset, shuffle=True, batch_size=1, num_workers=0)
 
     for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(dataloader):

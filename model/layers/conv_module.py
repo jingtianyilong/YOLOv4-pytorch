@@ -25,7 +25,7 @@ class Convolutional(nn.Module):
         self.norm = norm
         self.activate = activate
 
-        if cfg.CONV_TYPE["TYPE"] == 'DO_CONV':
+        if cfg.CONV_TYPE == 'DO_CONV':
             self.__conv = DOConv2d(in_channels=filters_in, out_channels=filters_out, kernel_size=kernel_size,
                                 stride=stride, padding=pad, bias=not norm)
         else:

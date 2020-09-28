@@ -31,24 +31,26 @@ def detection_collate(batch):
 
 
 class Trainer(object):
-    def __init__(self, weight_path=yolov4.conv.137.pth, resume=False, accumulate=2, fp_16=True):
+    def __init__(self, log_dir, weight_path=yolov4.conv.137.pth, resume=False, accumulate=2, fp_16=True):
         init_seeds(0)
         self.fp_16 = fp_16
         self.device = gpu.select_device()
         self.start_epoch = 0
         self.best_mAP = 0.
         self.accumulate = accumulate
+        self.log_dir = log_dir
         self.weight_path = weight_path
         self.multi_scale_train = cfg.TRAIN.MULTI_SCALE_TRAIN
-        if self.multi_scale_train:print('Using multi scales training')
-        else:print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
-        self.train_dataset = data.Build_Dataset(anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
+        if self.multi_scale_train:
+            print('Using multi scales training')
+        else:
+            print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
+        self.train_dataset = data.Build_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN.BATCH_SIZE,
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
-                                           shuffle=True, pin_memory=True
-                                           )
+                                           shuffle=True, pin_memory=True)
 
         self.yolov4 = Build_Model(weight_path=weight_path, resume=resume).to(self.device)
 
@@ -67,7 +69,7 @@ class Trainer(object):
 
     def __load_resume_weights(self, weight_path):
 
-        last_weight = os.path.join(os.path..dirname(weight_path), "last.pt")
+        last_weight = os.path.join(log_dir,"checkpoints", "last.pt")
         chkpt = torch.load(last_weight, map_location=self.device)
         self.yolov4.load_state_dict(chkpt['model'])
 
@@ -80,8 +82,8 @@ class Trainer(object):
     def __save_model_weights(self, epoch, mAP):
         if mAP > self.best_mAP:
             self.best_mAP = mAP
-        best_weight = os.path.join(os.path.dirname(self.weight_path), "best.pt")
-        last_weight = os.path.join(os.path.dirname(self.weight_path), "last.pt")
+        best_weight = os.path.join(log_dir,"checkpoints", "best.pt")
+        last_weight = os.path.join(log_dir,"checkpoints", "last.pt")
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
                  'model': self.yolov4.state_dict(),
@@ -92,7 +94,7 @@ class Trainer(object):
             torch.save(chkpt['model'], best_weight)
 
         if epoch > 0 and epoch % 10 == 0:
-            torch.save(chkpt, os.path.join(os.path.dirname(self.weight_path), 'backup_epoch%g.pt'%epoch))
+            torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
         del chkpt
 
 
@@ -213,7 +215,4 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir= log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
 
-    Trainer(weight_path=cfg.weight_path,
-            resume=cfg.resume,
-            accumulate=cfg.accumulate,
-            fp_16=cfg.fp_16).train()
+    Trainer(log_dir).train()
