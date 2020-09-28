@@ -10,7 +10,7 @@ from torch._six import container_abcs
 from torch._jit_internal import Optional
 from torch.nn.parameter import Parameter
 from torch.nn.modules.module import Module
-import config.yolov4_config as cfg
+from config import cfg
 
 norm_name = {"bn": nn.BatchNorm2d}
 activate_name = {

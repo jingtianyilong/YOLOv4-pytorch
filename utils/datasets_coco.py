@@ -241,10 +241,10 @@ if __name__ == "__main__":
 #
 #     def __creat_label(self, bboxes):
 #
-#         anchors = np.array(cfg.MODEL["ANCHORS"])
-#         strides = np.array(cfg.MODEL["STRIDES"])
+#         anchors = np.array(cfg.MODEL.ANCHORS)
+#         strides = np.array(cfg.MODEL.STRIDES)
 #         train_output_size = self.img_size / strides
-#         anchors_per_scale = cfg.MODEL["ANCHORS_PER_SCLAE"]
+#         anchors_per_scale = cfg.MODEL.ANCHORS_PER_SCLAE
 #
 #         label = [np.zeros((int(train_output_size[i]), int(train_output_size[i]), anchors_per_scale, 6+self.num_classes))
 #                                                                       for i in range(3)]

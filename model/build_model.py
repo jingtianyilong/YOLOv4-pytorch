@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch
 from model.head.yolo_head import Yolo_head
 from model.YOLOv4 import YOLOv4
-import config.yolov4_config as cfg
+from config import cfg
 
 
 class Build_Model(nn.Module):
@@ -15,15 +15,15 @@ class Build_Model(nn.Module):
     def __init__(self, weight_path=None, resume=False):
         super(Build_Model, self).__init__()
 
-        self.__anchors = torch.FloatTensor(cfg.MODEL["ANCHORS"])
-        self.__strides = torch.FloatTensor(cfg.MODEL["STRIDES"])
-        if cfg.TRAIN["DATA_TYPE"] == 'VOC':
+        self.__anchors = torch.FloatTensor(cfg.MODEL.ANCHORS)
+        self.__strides = torch.FloatTensor(cfg.MODEL.STRIDES)
+        if cfg.TRAIN.DATA_TYPE == 'VOC':
             self.__nC = cfg.VOC_DATA["NUM"]
-        elif cfg.TRAIN["DATA_TYPE"] == 'COCO':
+        elif cfg.TRAIN.DATA_TYPE == 'COCO':
             self.__nC = cfg.COCO_DATA["NUM"]
         else:
             self.__nC = cfg.Customer_DATA["NUM"]
-        self.__out_channel = cfg.MODEL["ANCHORS_PER_SCLAE"] * (self.__nC + 5)
+        self.__out_channel = cfg.MODEL.ANCHORS_PER_SCLAE * (self.__nC + 5)
 
         self.__yolov4 = YOLOv4(weight_path=weight_path, out_channels=self.__out_channel, resume=resume)
         # small

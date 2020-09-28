@@ -5,22 +5,22 @@ from utils.tools import *
 from tqdm import tqdm
 from utils.visualize import *
 from utils.heatmap import imshowAtt
-import config.yolov4_config as cfg
+from config import cfg
 import time
 current_milli_time = lambda: int(round(time.time() * 1000))
 class Evaluator(object):
     def __init__(self, model, showatt):
-        if cfg.TRAIN["DATA_TYPE"] == 'VOC':
+        if cfg.TRAIN.DATA_TYPE == 'VOC':
             self.classes = cfg.VOC_DATA["CLASSES"]
-        elif cfg.TRAIN["DATA_TYPE"] == 'COCO':
+        elif cfg.TRAIN.DATA_TYPE == 'COCO':
             self.classes = cfg.COCO_DATA["CLASSES"]
         else:
             self.classes = cfg.Customer_DATA["CLASSES"]
         self.pred_result_path = os.path.join(cfg.PROJECT_PATH, 'pred_result')
         self.val_data_path = os.path.join(cfg.DATA_PATH, 'VOCtest-2007', 'VOCdevkit', 'VOC2007')
         self.conf_thresh = cfg.VAL["CONF_THRESH"]
-        self.nms_thresh = cfg.VAL["NMS_THRESH"]
-        self.val_shape = cfg.VAL["TEST_IMG_SIZE"]
+        self.nms_thresh = cfg.VAL.NMS_THRESH
+        self.val_shape = cfg.VAL.TEST_IMG_SIZE
         self.model = model
         self.device = next(model.parameters()).device
         self.__visual_imgs = 0

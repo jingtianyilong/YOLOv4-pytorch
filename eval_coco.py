@@ -4,7 +4,7 @@ from eval.evaluator import Evaluator
 import argparse
 import time
 import logging
-import config.yolov4_config as cfg
+from config import cfg
 from utils.visualize import *
 from utils.torch_utils import *
 from utils.log import Logger
@@ -21,7 +21,7 @@ class Evaluation(object):
                  ):
         self.__num_class = cfg.COCO_DATA["NUM"]
         self.__conf_threshold = cfg.VAL["CONF_THRESH"]
-        self.__nms_threshold = cfg.VAL["NMS_THRESH"]
+        self.__nms_threshold = cfg.VAL.NMS_THRESH
         self.__device = gpu.select_device(gpu_id)
         self.__multi_scale_val = cfg.VAL["MULTI_SCALE_VAL"]
         self.__flip_val = cfg.VAL["FLIP_VAL"]
@@ -75,9 +75,9 @@ class Evaluation(object):
                 t = time.time()
                 evaluator = COCOAPIEvaluator(model_type='YOLOv3',
                                              data_dir=cfg.DATA_PATH,
-                                             img_size=cfg.VAL["TEST_IMG_SIZE"],
+                                             img_size=cfg.VAL.TEST_IMG_SIZE,
                                              confthre=i,
-                                             nmsthre=cfg.VAL["NMS_THRESH"])
+                                             nmsthre=cfg.VAL.NMS_THRESH)
                 _, r = evaluator.evaluate(self.__model)
                 y.append(str(i) +str('  ') + str(r) +str('  ')+ str(time.time() - t,))
                 np.savetxt('study.txt', y, fmt='%s')  # y = np.loadtxt('study.txt')
@@ -89,9 +89,9 @@ class Evaluation(object):
 
             evaluator = COCOAPIEvaluator(model_type='YOLOv4',
                                         data_dir=cfg.DATA_PATH,
-                                        img_size=cfg.VAL["TEST_IMG_SIZE"],
+                                        img_size=cfg.VAL.TEST_IMG_SIZE,
                                         confthre=cfg.VAL["CONF_THRESH"],
-                                        nmsthre=cfg.VAL["NMS_THRESH"])
+                                        nmsthre=cfg.VAL.NMS_THRESH)
             ap50_95, ap50 = evaluator.evaluate(self.__model)
             logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))
             end = time.time()

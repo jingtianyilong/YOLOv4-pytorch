@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import cv2
 import random
-import config.yolov4_config as cfg
+from config import cfg
 import os
 import math
 

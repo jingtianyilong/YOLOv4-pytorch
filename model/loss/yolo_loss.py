@@ -3,7 +3,7 @@ sys.path.append("../utils")
 import torch
 import torch.nn as nn
 from utils import tools
-import config.yolov4_config as cfg
+from config import cfg
 
 
 class FocalLoss(nn.Module):
@@ -137,6 +137,6 @@ if __name__ == "__main__":
     mbboxes = torch.rand(3, 150, 4)
     lbboxes = torch.rand(3, 150, 4)
 
-    loss, loss_xywh, loss_conf, loss_cls = YoloV4Loss(cfg.MODEL["ANCHORS"], cfg.MODEL["STRIDES"])(p, p_d, label_sbbox,
+    loss, loss_xywh, loss_conf, loss_cls = YoloV4Loss(cfg.MODEL.ANCHORS, cfg.MODEL.STRIDES)(p, p_d, label_sbbox,
                                     label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)
     print(loss)

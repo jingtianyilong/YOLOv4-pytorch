@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
 import xml.etree.ElementTree as ET
-import config.yolov4_config as cfg
+from config import cfg
 import os
 from tqdm import tqdm
 

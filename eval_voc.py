@@ -5,7 +5,7 @@ from eval.evaluator import Evaluator
 import argparse
 import time
 import logging
-import config.yolov4_config as cfg
+from config import cfg
 from utils.visualize import *
 from utils.torch_utils import *
 from utils.log import Logger
@@ -20,7 +20,7 @@ class Evaluation(object):
                  ):
         self.__num_class = cfg.VOC_DATA["NUM"]
         self.__conf_threshold = cfg.VAL["CONF_THRESH"]
-        self.__nms_threshold = cfg.VAL["NMS_THRESH"]
+        self.__nms_threshold = cfg.VAL.NMS_THRESH
         self.__device = gpu.select_device(gpu_id)
         self.__multi_scale_val = cfg.VAL["MULTI_SCALE_VAL"]
         self.__flip_val = cfg.VAL["FLIP_VAL"]

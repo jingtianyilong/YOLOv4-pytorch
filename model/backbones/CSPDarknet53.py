@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from model.layers.attention_layers import SEModule, CBAM
-import config.yolov4_config as cfg
+from config import cfg
 
 
 class Mish(nn.Module):

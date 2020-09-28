@@ -5,7 +5,7 @@ sys.path.append("..")
 sys.path.append("../utils")
 import torch
 from torch.utils.data import Dataset, DataLoader
-import config.yolov4_config as cfg
+from config import cfg
 import cv2
 import numpy as np
 import random
@@ -19,9 +19,9 @@ import utils.tools as tools
 class Build_Dataset(Dataset):
     def __init__(self, anno_file_type, img_size=416):
         self.img_size = img_size  # For Multi-training
-        if cfg.TRAIN["DATA_TYPE"] == 'VOC':
+        if cfg.TRAIN.DATA_TYPE == 'VOC':
             self.classes = cfg.VOC_DATA["CLASSES"]
-        elif cfg.TRAIN["DATA_TYPE"] == 'COCO':
+        elif cfg.TRAIN.DATA_TYPE == 'COCO':
             self.classes = cfg.COCO_DATA["CLASSES"]
         else:
             self.classes = cfg.Customer_DATA["CLASSES"]
@@ -107,10 +107,10 @@ class Build_Dataset(Dataset):
 
         """
 
-        anchors = np.array(cfg.MODEL["ANCHORS"])
-        strides = np.array(cfg.MODEL["STRIDES"])
+        anchors = np.array(cfg.MODEL.ANCHORS)
+        strides = np.array(cfg.MODEL.STRIDES)
         train_output_size = self.img_size / strides
-        anchors_per_scale = cfg.MODEL["ANCHORS_PER_SCLAE"]
+        anchors_per_scale = cfg.MODEL.ANCHORS_PER_SCLAE
 
         label = [np.zeros((int(train_output_size[i]), int(train_output_size[i]), anchors_per_scale, 6+self.num_classes))
                                                                       for i in range(3)]

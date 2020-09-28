@@ -3,7 +3,7 @@ import tempfile
 import torch
 from pycocotools.cocoeval import COCOeval
 from torch.autograd import Variable
-import config.yolov4_config as cfg
+from config import cfg
 from utils.cocodataset import *
 from utils.utils import *
 
@@ -38,7 +38,7 @@ class COCOAPIEvaluator():
                                    json_file='instances_val2017.json',
                                    name='val2017')
         self.dataloader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=cfg.VAL["BATCH_SIZE"], shuffle=False, pin_memory=True,num_workers=cfg.VAL["NUMBER_WORKERS"])
+            self.dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=False, pin_memory=True,num_workers=cfg.VAL.NUMBER_WORKERS)
         self.img_size = img_size
         self.confthre = confthre # from darknet
         self.nmsthre = nmsthre # 0.45 (darknet)
