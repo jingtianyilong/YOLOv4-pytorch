@@ -21,19 +21,19 @@ _C.MODEL.ATTENTION = 'NONE'  #attention type:SEnet、CBAM or NONE
 # train
 _C.TRAIN = CN()
 _C.TRAIN.ANNO_FILE = "train.txt"
-_C.TRAIN.DATA_TYPE = 'Customer',  #DATA_TYPE: VOC ,COCO or Customer
-_C.TRAIN.TRAIN_IMG_SIZE =608,
-_C.TRAIN.AUGMENT = True,
-_C.TRAIN.BATCH_SIZE = 128,
-_C.TRAIN.MULTI_SCALE_TRAIN = True,
-_C.TRAIN.IOU_THRESHOLD_LOSS = 0.5,
-_C.TRAIN.YOLO_EPOCHS = 80,
-_C.TRAIN.Mobilenet_YOLO_EPOCHS = 120,
-_C.TRAIN.NUMBER_WORKERS = 16,
-_C.TRAIN.MOMENTUM = 0.9,
-_C.TRAIN.WEIGHT_DECAY = 0.0005,
-_C.TRAIN.LR_INIT = 1e-4,
-_C.TRAIN.LR_END = 1e-6,
+_C.TRAIN.DATA_TYPE = 'Customer'  #DATA_TYPE: VOC ,COCO or Customer
+_C.TRAIN.TRAIN_IMG_SIZE = 608
+_C.TRAIN.AUGMENT = True
+_C.TRAIN.BATCH_SIZE = 128
+_C.TRAIN.MULTI_SCALE_TRAIN = True
+_C.TRAIN.IOU_THRESHOLD_LOSS = 0.5
+_C.TRAIN.YOLO_EPOCHS = 80
+_C.TRAIN.Mobilenet_YOLO_EPOCHS = 120
+_C.TRAIN.NUMBER_WORKERS = 16
+_C.TRAIN.MOMENTUM = 0.9
+_C.TRAIN.WEIGHT_DECAY = 0.0005
+_C.TRAIN.LR_INIT = 1e-4
+_C.TRAIN.LR_END = 1e-6
 _C.TRAIN.WARMUP_EPOCHS = 2  # or None
 
 
@@ -41,29 +41,32 @@ _C.TRAIN.WARMUP_EPOCHS = 2  # or None
 # val
 _C.VAL =  CN()
 _C.VAL.ANNO_FILE = "val.txt"
-_C.VAL.TEST_IMG_SIZE = 608,
-_C.VAL.BATCH_SIZE =  1,
-_C.VAL.NUMBER_WORKERS =  8,
-_C.VAL.CONF_THRESH =  0.5,
-_C.VAL.NMS_THRESH =  0.45,
-_C.VAL.MULTI_SCALE_VAL =  False,
-_C.VAL.FLIP_VAL =  False,
+_C.VAL.TEST_IMG_SIZE = 608
+_C.VAL.BATCH_SIZE =  1
+_C.VAL.NUMBER_WORKERS =  8
+_C.VAL.CONF_THRESH =  0.5
+_C.VAL.NMS_THRESH =  0.45
+_C.VAL.MULTI_SCALE_VAL =  False
+_C.VAL.FLIP_VAL =  False
 _C.VAL.Visual =  True
 
 
-_C.Customer_DATA = {
-    "NUM": 1, #your dataset number
-                 "CLASSES":['aeroplane']# your dataset class
-        }
+_C.DATASET = CN()
+_C.DATASET.NUM =  1 #your dataset number
+_C.DATASET.CLASSES = ['aeroplane'] # your dataset class
 
-_C.VOC_DATA = {"NUM": 20, "CLASSES":['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
+
+_C.VOC_DATA = CN()
+_C.VOC_DATA.NUM = 20
+_C.VOC_DATA.CLASSES = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
            'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
            'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
            'train', 'tvmonitor']
-        }
 
-_C.COCO_DATA = {"NUM":80,
-"CLASSES":['person',
+
+_C.COCO_DATA = CN()
+_C.COCO_DATA.NUM = 80
+_C.COCO_DATA.CLASSES = ['person',
 'bicycle',
 'car',
 'motorcycle',
@@ -142,12 +145,7 @@ _C.COCO_DATA = {"NUM":80,
 'scissors',
 'teddy bear',
 'hair drier',
-'toothbrush']}
-
-
-
-
-
+'toothbrush']
 
 def update_config(cfg, args):
     cfg.defrost()

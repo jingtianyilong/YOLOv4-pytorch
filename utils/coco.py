@@ -15,7 +15,7 @@ def parse_voc_annotation(data_path, file_type, anno_path, use_difficult_bbox=Fal
     :param use_difficult_bbox: whither use different sample
     :return: batch size of data set
     """
-    classes = cfg.COCO_DATA["CLASSES"]
+    classes = cfg.COCO_DATA.CLASSES
     img_inds_file = os.path.join(data_path, 'ImageSets', 'Main', file_type+'.txt')
     with open(img_inds_file, 'r') as f:
         lines = f.readlines()

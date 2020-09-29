@@ -18,16 +18,16 @@ class Evaluation(object):
                  visiual=None,
                  eval=False,
                  ):
-        self.__num_class = cfg.VOC_DATA["NUM"]
-        self.__conf_threshold = cfg.VAL["CONF_THRESH"]
+        self.__num_class = cfg.VOC_DATA.NUM
+        self.__conf_threshold = cfg.VAL.CONF_THRESH
         self.__nms_threshold = cfg.VAL.NMS_THRESH
         self.__device = gpu.select_device(gpu_id)
-        self.__multi_scale_val = cfg.VAL["MULTI_SCALE_VAL"]
-        self.__flip_val = cfg.VAL["FLIP_VAL"]
+        self.__multi_scale_val = cfg.VAL.MULTI_SCALE_VAL
+        self.__flip_val = cfg.VAL.FLIP_VAL
 
         self.__visiual = visiual
         self.__eval = eval
-        self.__classes = cfg.VOC_DATA["CLASSES"]
+        self.__classes = cfg.VOC_DATA.CLASSES
 
         self.__model = Build_Model().to(self.__device)
 

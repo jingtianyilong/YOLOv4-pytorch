@@ -19,16 +19,16 @@ class Evaluation(object):
                  visiual=None,
                  heatmap=False
                  ):
-        self.__num_class = cfg.COCO_DATA["NUM"]
-        self.__conf_threshold = cfg.VAL["CONF_THRESH"]
+        self.__num_class = cfg.COCO_DATA.NUM
+        self.__conf_threshold = cfg.VAL.CONF_THRESH
         self.__nms_threshold = cfg.VAL.NMS_THRESH
         self.__device = gpu.select_device(gpu_id)
-        self.__multi_scale_val = cfg.VAL["MULTI_SCALE_VAL"]
-        self.__flip_val = cfg.VAL["FLIP_VAL"]
+        self.__multi_scale_val = cfg.VAL.MULTI_SCALE_VAL
+        self.__flip_val = cfg.VAL.FLIP_VAL
 
         self.__visiual = visiual
         self.__eval = eval
-        self.__classes = cfg.COCO_DATA["CLASSES"]
+        self.__classes = cfg.COCO_DATA.CLASSES
 
         self.__model = Build_Model().to(self.__device)
 
@@ -90,7 +90,7 @@ class Evaluation(object):
             evaluator = COCOAPIEvaluator(model_type='YOLOv4',
                                         data_dir=cfg.DATA_PATH,
                                         img_size=cfg.VAL.TEST_IMG_SIZE,
-                                        confthre=cfg.VAL["CONF_THRESH"],
+                                        confthre=cfg.VAL.CONF_THRESH,
                                         nmsthre=cfg.VAL.NMS_THRESH)
             ap50_95, ap50 = evaluator.evaluate(self.__model)
             logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))

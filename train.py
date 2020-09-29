@@ -32,7 +32,7 @@ def detection_collate(batch):
 
 
 class Trainer(object):
-    def __init__(self, log_dir, weight_path=yolov4.conv.137.pth, resume=False, accumulate=2, fp_16=True):
+    def __init__(self, log_dir, resume=False, accumulate=2, fp_16=True):
         init_seeds(0)
         self.fp_16 = fp_16
         self.device = gpu.select_device()
@@ -40,7 +40,7 @@ class Trainer(object):
         self.best_mAP = 0.
         self.accumulate = accumulate
         self.log_dir = log_dir
-        self.weight_path = weight_path
+        self.weight_path = "yolov4.weights"
         self.multi_scale_train = cfg.TRAIN.MULTI_SCALE_TRAIN
         if self.multi_scale_train:
             print('Using multi scales training')
@@ -53,7 +53,7 @@ class Trainer(object):
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
                                            shuffle=True, pin_memory=True)
 
-        self.yolov4 = Build_Model(weight_path=weight_path, resume=resume)
+        self.yolov4 = Build_Model(weight_path="yolov4.weights", resume=resume)
         if torch.cuda.device_count()>1:
             self.yolov4 = torch.nn.DataParallel(self.yolov4)
         self.yolov4 = self.yolov4.to(self.device)
@@ -69,9 +69,9 @@ class Trainer(object):
                                                           lr_init=cfg.TRAIN.LR_INIT,
                                                           lr_min=cfg.TRAIN.LR_END,
                                                           warmup=cfg.TRAIN.WARMUP_EPOCHS*len(self.train_dataloader))
-        if resume: self.__load_resume_weights(weight_path)
+        if resume: self.__load_resume_weights()
 
-    def __load_resume_weights(self, weight_path):
+    def __load_resume_weights(self):
 
         last_weight = os.path.join(log_dir,"checkpoints", "last.pt")
         chkpt = torch.load(last_weight, map_location=self.device)
@@ -187,6 +187,7 @@ class Trainer(object):
 def getArgs():
     parser = argparse.ArgumentParser(description='Train the Model on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--resume', type=bool, default=False, help="whether resume training")
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
     parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before cfgimizing')
     parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')
@@ -205,4 +206,4 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir= log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
 
-    Trainer(log_dir).train()
+    Trainer(log_dir,resume= args.resume).train()

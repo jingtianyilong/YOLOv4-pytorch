@@ -17,11 +17,11 @@ class Build_Dataset(Dataset):
     def __init__(self, anno_file, anno_file_type, img_size=416):
         self.img_size = img_size  # For Multi-training
         if cfg.TRAIN.DATA_TYPE == 'VOC':
-            self.classes = cfg.VOC_DATA["CLASSES"]
+            self.classes = cfg.VOC_DATA.CLASSES
         elif cfg.TRAIN.DATA_TYPE == 'COCO':
-            self.classes = cfg.COCO_DATA["CLASSES"]
+            self.classes = cfg.COCO_DATA.CLASSES
         else:
-            self.classes = cfg.Customer_DATA["CLASSES"]
+            self.classes = cfg.DATASET.CLASSES
         self.num_classes = len(self.classes)
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         self.__annotations = self.__load_annotations(anno_file, anno_file_type)
@@ -75,7 +75,7 @@ class Build_Dataset(Dataset):
         """
         anno = annotation.strip().split(' ')
 
-        img_path = os.path.join(cfg.DATA_PATH, anno[0)])
+        img_path = os.path.join(cfg.DATA_PATH, anno[0])
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])

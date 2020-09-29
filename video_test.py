@@ -19,13 +19,13 @@ class Detection(object):
                  video_path=None,
                  output_dir=None,
                  ):
-        self.__num_class = cfg.VOC_DATA["NUM"]
-        self.__conf_threshold = cfg.VAL["CONF_THRESH"]
+        self.__num_class = cfg.VOC_DATA.NUM
+        self.__conf_threshold = cfg.VAL.CONF_THRESH
         self.__nms_threshold = cfg.VAL.NMS_THRESH
         self.__device = gpu.select_device(gpu_id)
-        self.__multi_scale_val = cfg.VAL["MULTI_SCALE_VAL"]
-        self.__flip_val = cfg.VAL["FLIP_VAL"]
-        self.__classes = cfg.VOC_DATA["CLASSES"]
+        self.__multi_scale_val = cfg.VAL.MULTI_SCALE_VAL
+        self.__flip_val = cfg.VAL.FLIP_VAL
+        self.__classes = cfg.VOC_DATA.CLASSES
 
         self.__video_path = video_path
         self.__output_dir = output_dir
