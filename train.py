@@ -3,7 +3,7 @@ import utils.gpu as gpu
 from model.build_model import Build_Model
 from model.loss.yolo_loss import YoloV4Loss
 import torch
-import torch.cfgim as cfgim
+import torch.optim as optim
 from torch.utils.data import DataLoader
 import utils.datasets as data
 import time
@@ -54,17 +54,16 @@ class Trainer(object):
                                            shuffle=True, pin_memory=True)
 
         self.yolov4 = Build_Model(weight_path="yolov4.weights", resume=resume)
-        if torch.cuda.device_count()>1:
-            self.yolov4 = torch.nn.DataParallel(self.yolov4)
+
         self.yolov4 = self.yolov4.to(self.device)
 
-        self.cfgimizer = cfgim.SGD(self.yolov4.parameters(), lr=cfg.TRAIN.LR_INIT,
+        self.optimizer = optim.SGD(self.yolov4.parameters(), lr=cfg.TRAIN.LR_INIT,
                                    momentum=cfg.TRAIN.MOMENTUM, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
 
         self.criterion = YoloV4Loss(anchors=cfg.MODEL.ANCHORS, strides=cfg.MODEL.STRIDES,
-                                    iou_threshold_loss=cfg.TRAINIOU_THRESHOLD_LOSS)
+                                    iou_threshold_loss=cfg.TRAIN.IOU_THRESHOLD_LOSS)
 
-        self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.cfgimizer,
+        self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
                                                           lr_init=cfg.TRAIN.LR_INIT,
                                                           lr_min=cfg.TRAIN.LR_END,
@@ -78,8 +77,8 @@ class Trainer(object):
         self.yolov4.load_state_dict(chkpt['model'])
 
         self.start_epoch = chkpt['epoch'] + 1
-        if chkpt['cfgimizer'] is not None:
-            self.cfgimizer.load_state_dict(chkpt['cfgimizer'])
+        if chkpt['optimizer'] is not None:
+            self.optimizer.load_state_dict(chkpt['optimizer'])
             self.best_mAP = chkpt['best_mAP']
         del chkpt
 
@@ -91,7 +90,7 @@ class Trainer(object):
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
                  'model': self.yolov4.module.state_dict() if torch.cuda.device_count()>1 else self.yolov4.state_dict(),
-                 'cfgimizer': self.cfgimizer.state_dict()}
+                 'optimizer': self.optimizer.state_dict()}
         torch.save(chkpt, last_weight)
 
         if self.best_mAP == mAP:
@@ -109,7 +108,9 @@ class Trainer(object):
         logger.info(self.yolov4)
         logger.info("Train datasets number is : {}".format(len(self.train_dataset)))
 
-        if self.fp_16: self.yolov4, self.cfgimizer = amp.initialize(self.yolov4, self.cfgimizer, cfg_level='O1', verbosity=0)
+        if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
+
+        if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
         logger.info("        =======  start  training   ======     ")
         for epoch in range(self.start_epoch, self.epochs):
             start = time.time()
@@ -134,14 +135,14 @@ class Trainer(object):
                                                   label_lbbox, sbboxes, mbboxes, lbboxes)
 
                 if self.fp_16:
-                    with amp.scale_loss(loss, self.cfgimizer) as scaled_loss:
+                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                         scaled_loss.backward()
                 else:
                     loss.backward()
-                # Accumulate gradient for x batches before cfgimizing
+                # Accumulate gradient for x batches before optimizing
                 if i % self.accumulate == 0:
-                    self.cfgimizer.step()
-                    self.cfgimizer.zero_grad()
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
                 # Update running mean of tracked metrics
                 loss_items = torch.tensor([loss_ciou, loss_conf, loss_cls, loss])
@@ -150,7 +151,7 @@ class Trainer(object):
                 # Print batch results
                 if i % 10 == 0:
                     logger.info("  === Epoch:[{:3}/{}],step:[{:3}/{}],img_size:[{:3}],total_loss:{:.4f}|loss_ciou:{:.4f}|loss_conf:{:.4f}|loss_cls:{:.4f}|lr:{:.4f}".format(
-                        epoch, self.epochs,i, len(self.train_dataloader) - 1, self.train_dataset.img_size,mloss[3], mloss[0], mloss[1],mloss[2],self.cfgimizer.param_groups[0]['lr']
+                        epoch, self.epochs,i, len(self.train_dataloader) - 1, self.train_dataset.img_size,mloss[3], mloss[0], mloss[1],mloss[2],self.optimizer.param_groups[0]['lr']
                     ))
                     writer.add_scalar('loss_ciou', mloss[0],
                                       len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
@@ -189,7 +190,7 @@ def getArgs():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--resume', type=bool, default=False, help="whether resume training")
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
-    parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before cfgimizing')
+    parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before optimizing')
     parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')
     args = parser.parse_args()
     return args
@@ -203,7 +204,7 @@ if __name__ == "__main__":
     log_dir = os.path.join("log",os.path.basename(args.config_file)[:-5])
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    writer = SummaryWriter(logdir= log_dir)
+    writer = SummaryWriter(log_dir=log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
 
     Trainer(log_dir,resume= args.resume).train()

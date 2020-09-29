@@ -1,0 +1,41 @@
+MODEL:
+ ANCHORS: [[[9, 21], [20, 46], [21, 81]], [[33, 86], [56, 140], [61, 148]], [[101, 227], [116, 243], [155, 376]]]
+ 
+TRAIN:
+  ANNO_FILE: "cityscapes_train.txt"
+  DATA_TYPE: 'Customer'  #DATA_TYPE: VOC ,COCO or Customer
+  TRAIN_IMG_SIZE: 608
+  AUGMENT: True
+  BATCH_SIZE: 128
+  MULTI_SCALE_TRAIN: True
+  IOU_THRESHOLD_LOSS: 0.5
+  YOLO_EPOCHS: 80
+  NUMBER_WORKERS: 16
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0005
+  LR_INIT: 1e-4
+  LR_END: 1e-6
+  WARMUP_EPOCHS: 2  # or None
+
+VAL:
+  ANNO_FILE: "cityscapes_val.txt"
+  TEST_IMG_SIZE: 608
+  BATCH_SIZE: 1
+  NUMBER_WORKERS: 8
+  CONF_THRESH: 0.5
+  NMS_THRESH: 0.45
+  MULTI_SCALE_VAL: False
+  FLIP_VAL: False
+  Visual: True
+
+
+DATASET: 
+  NUM: 7 #your dataset number
+  CLASSES: [
+    'Human',
+    "Bike",
+    "Rider",
+    "Bus",
+    "Car",
+    "Motorbike",
+    "Truck"]

@@ -191,14 +191,13 @@ class YOLOv4(nn.Module):
     def __init__(self, weight_path=None, out_channels=255, resume=False):
         super(YOLOv4, self).__init__()
 
-        a = cfg.MODEL_TYPE.TYPE
-        if cfg.MODEL_TYPE.TYPE == 'YOLOv4':
+        if cfg.MODEL.MODEL_TYPE == 'YOLOv4':
             # CSPDarknet53 backbone
             self.backbone, feature_channels = _BuildCSPDarknet53(weight_path=weight_path, resume=resume)
-        elif cfg.MODEL_TYPE.TYPE == 'Mobilenet-YOLOv4':
+        elif cfg.MODEL.MODEL_TYPE == 'Mobilenet-YOLOv4':
             # MobilenetV2 backbone
             self.backbone, feature_channels = _BuildMobilenetV2(weight_path=weight_path, resume=resume)
-        elif cfg.MODEL_TYPE.TYPE == 'Mobilenetv3-YOLOv4':
+        elif cfg.MODEL.MODEL_TYPE == 'Mobilenetv3-YOLOv4':
             # MobilenetV2 backbone
             self.backbone, feature_channels = _BuildMobilenetV3(weight_path=weight_path, resume=resume)
         else:

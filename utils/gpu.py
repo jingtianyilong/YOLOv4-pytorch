@@ -14,7 +14,7 @@ def select_device():
             # torch.cuda.set_device(0)  # OPTIONAL: Set GPU ID
             for i in range(1, ng):
                 print("           device%g _CudaDeviceProperties(name='%s', total_memory=%dMB)" %
-                      (i, x[i].name, x[i].total_memory / c)
+                      (i, x[i].name, x[i].total_memory / c))
     else:
         device = torch.device('cpu')
     return device

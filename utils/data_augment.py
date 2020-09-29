@@ -2,7 +2,7 @@
 import cv2
 import random
 import numpy as np
-
+import pdb
 
 class RandomHorizontalFilp(object):
     def __init__(self, p=0.5):
@@ -11,8 +11,8 @@ class RandomHorizontalFilp(object):
     def __call__(self, img, bboxes, img_path):
         if random.random() < self.p:
             _, w_img, _ = img.shape
-            # img = np.fliplr(img)
             img = img[:, ::-1, :]
+            
             bboxes[:, [0, 2]] = w_img - bboxes[:, [2, 0]]
         return img, bboxes
 
@@ -37,7 +37,6 @@ class RandomCrop(object):
             crop_ymax = max(h_img, int(max_bbox[3] + random.uniform(0, max_d_trans)))
 
             img = img[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
-
             bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
             bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
         return img, bboxes
@@ -105,19 +104,23 @@ class Mixup(object):
         self.p = p
 
     def __call__(self, img_org, bboxes_org, img_mix, bboxes_mix):
-        if random.random() > self.p:
-            lam = np.random.beta(1.5, 1.5)
-            img = lam * img_org + (1 - lam) * img_mix
-            bboxes_org = np.concatenate(
-                [bboxes_org, np.full((len(bboxes_org), 1), lam)], axis=1)
-            bboxes_mix = np.concatenate(
-                [bboxes_mix, np.full((len(bboxes_mix), 1), 1 - lam)], axis=1)
-            bboxes = np.concatenate([bboxes_org, bboxes_mix])
+        if len(bboxes_org) > 0:
+            if random.random() > self.p:
+                lam = np.random.beta(1.5, 1.5)
+                img = lam * img_org + (1 - lam) * img_mix
+                bboxes_org = np.concatenate(
+                    [bboxes_org, np.full((len(bboxes_org), 1), lam)], axis=1)
+                bboxes_mix = np.concatenate(
+                    [bboxes_mix, np.full((len(bboxes_mix), 1), 1 - lam)], axis=1)
+                bboxes = np.concatenate([bboxes_org, bboxes_mix])
 
+            else:
+                img = img_org
+                bboxes = np.concatenate([bboxes_org, np.full((len(bboxes_org), 1), 1.0)], axis=1)
         else:
             img = img_org
-            bboxes = np.concatenate([bboxes_org, np.full((len(bboxes_org), 1), 1.0)], axis=1)
-
+            bboxes = bboxes_org
+            
         return img, bboxes
 
 

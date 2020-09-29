@@ -60,7 +60,7 @@ class Build_Dataset(Dataset):
     def __load_annotations(self, anno_file, anno_type):
 
         assert anno_type in ['train', 'test'], "You must choice one of the 'train' or 'test' for anno_type parameter"
-        with open(anno_file, 'r') as f:
+        with open(os.path.join(cfg.DATA_PATH,anno_file), 'r') as f:
             annotations = list(filter(lambda x:len(x)>0, f.readlines()))
         assert len(annotations)>0, "No images found in {}".format(anno_file)
 
@@ -78,13 +78,15 @@ class Build_Dataset(Dataset):
         img_path = os.path.join(cfg.DATA_PATH, anno[0])
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
-        bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-
-        img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes), img_path)
-        img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
-        img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
-        img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
-
+        if len(anno)>1:
+            bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
+            img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes), img_path)
+            img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
+            img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
+            img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
+        else: 
+            print("positive")
+            bboxes = []
         return img, bboxes
 
     def __creat_label(self, bboxes):
