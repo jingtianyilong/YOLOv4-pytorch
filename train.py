@@ -16,6 +16,7 @@ from config import cfg
 from config import update_config
 from utils import cosine_lr_scheduler
 from utils.log import Logger
+from utils.utils import init_seed
 from apex import amp
 from eval_coco import *
 from eval.cocoapi_evaluator import COCOAPIEvaluator
@@ -52,7 +53,10 @@ class Trainer(object):
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
                                            shuffle=True, pin_memory=True)
 
-        self.yolov4 = Build_Model(weight_path=weight_path, resume=resume).to(self.device)
+        self.yolov4 = Build_Model(weight_path=weight_path, resume=resume)
+        if torch.cuda.device_count()>1:
+            self.yolov4 = torch.nn.DataParallel(self.yolov4)
+        self.yolov4 = self.yolov4.to(self.device)
 
         self.cfgimizer = cfgim.SGD(self.yolov4.parameters(), lr=cfg.TRAIN.LR_INIT,
                                    momentum=cfg.TRAIN.MOMENTUM, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
@@ -86,7 +90,7 @@ class Trainer(object):
         last_weight = os.path.join(log_dir,"checkpoints", "last.pt")
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
-                 'model': self.yolov4.state_dict(),
+                 'model': self.yolov4.module.state_dict() if torch.cuda.device_count()>1 else self.yolov4.state_dict(),
                  'cfgimizer': self.cfgimizer.state_dict()}
         torch.save(chkpt, last_weight)
 
@@ -145,7 +149,6 @@ class Trainer(object):
 
                 # Print batch results
                 if i % 10 == 0:
-
                     logger.info("  === Epoch:[{:3}/{}],step:[{:3}/{}],img_size:[{:3}],total_loss:{:.4f}|loss_ciou:{:.4f}|loss_conf:{:.4f}|loss_cls:{:.4f}|lr:{:.4f}".format(
                         epoch, self.epochs,i, len(self.train_dataloader) - 1, self.train_dataset.img_size,mloss[3], mloss[0], mloss[1],mloss[2],self.cfgimizer.param_groups[0]['lr']
                     ))
@@ -161,7 +164,6 @@ class Trainer(object):
                 if self.multi_scale_train and (i+1) % 10 == 0:
                     self.train_dataset.img_size = random.choice(range(10, 20)) * 32
 
-            if cfg.TRAIN.DATA_TYPE == 'VOC' or cfg.TRAIN.DATA_TYPE == 'Customer':
                 mAP = 0.
                 if epoch >= 0:
                     logger.info("===== Validate =====".format(epoch, self.epochs))
@@ -169,7 +171,7 @@ class Trainer(object):
                         APs, inference_time = Evaluator(self.yolov4, showatt=False).APs_voc()
                         for i in APs:
                             logger.info("{} --> mAP : {}".format(i, APs[i]))
-                            mAP += APs[i]rtyyyyyy
+                            mAP += APs[i]
                         mAP = mAP / self.train_dataset.num_classes
                         logger.info("mAP : {}".format(mAP))
                         logger.info("inference time: {:.2f} ms".format(inference_time))
@@ -177,18 +179,7 @@ class Trainer(object):
                         self.__save_model_weights(epoch, mAP)
                         logger.info('save weights done')
                     logger.info("  ===test mAP:{:.3f}".format(mAP))
-            elif epoch >= 0 and cfg.TRAIN.DATA_TYPE == 'COCO':
-                evaluator = COCOAPIEvaluator(model_type='YOLOv4',
-                                             data_dir=cfg.DATA_PATH,
-                                             img_size=cfg.VAL.TEST_IMG_SIZE,
-                                             confthre=0.08,
-                                             nmsthre=cfg.VAL.NMS_THRESH)
-                ap50_95, ap50 = evaluator.evaluate(self.yolov4)
-                logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))
-                writer.add_scalar('val/COCOAP50', ap50, epoch)
-                writer.add_scalar('val/COCOAP50_95', ap50_95, epoch)
-                self.__save_model_weights(epoch, ap50)
-                print('save weights done')
+           
             end = time.time()
             logger.info("  ===cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
@@ -196,7 +187,6 @@ class Trainer(object):
 def getArgs():
     parser = argparse.ArgumentParser(description='Train the Model on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--gpu_id', type=int, default=0,1,2,3, help='whither use GPU(eg:0,1,2,3,4,5,6,7,8) or CPU(-1)')
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
     parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before cfgimizing')
     parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')

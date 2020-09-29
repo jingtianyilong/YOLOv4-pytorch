@@ -9,9 +9,6 @@ from config import cfg
 import cv2
 import numpy as np
 import random
-# from . import data_augment as dataAug
-# from . import tools
-
 import utils.data_augment as dataAug
 import utils.tools as tools
 

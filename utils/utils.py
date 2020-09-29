@@ -1,8 +1,16 @@
 from __future__ import division
 import torch
+import random
 import numpy as np
 import cv2
 
+def init_seed(number=356):
+    random.seed(number)
+    torch.manual_seed(number)
+    torch.cuda.manual_seed_all(number)
+    np.random.seed(number)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def nms(bbox, thresh, score=None, limit=None):
     """Suppress bounding boxes according to their IoUs and confidence scores.
