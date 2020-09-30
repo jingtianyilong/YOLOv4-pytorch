@@ -34,15 +34,12 @@ class Build_Dataset(Dataset):
 
         img_org, bboxes_org = self.__parse_annotation(self.__annotations[item])
         img_org = img_org.transpose(2, 0, 1)  # HWC->CHW
-
         item_mix = random.randint(0, len(self.__annotations)-1)
         img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
         img_mix = img_mix.transpose(2, 0, 1)
 
-
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
         del img_org, bboxes_org, img_mix, bboxes_mix
-
 
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
 
@@ -78,15 +75,15 @@ class Build_Dataset(Dataset):
         img_path = os.path.join(cfg.DATA_PATH, anno[0])
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
-        if len(anno)>1:
+        if len(anno) == 1:
+            bboxes = np.zeros((0,4), dtype=np.int32)                                    
+        else:
             bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-            img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes), img_path)
-            img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
-            img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
-            img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
-        else: 
-            print("positive")
-            bboxes = []
+        img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes), img_path)
+        img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
+        img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
+        img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
+
         return img, bboxes
 
     def __creat_label(self, bboxes):
@@ -110,8 +107,10 @@ class Build_Dataset(Dataset):
         train_output_size = self.img_size / strides
         anchors_per_scale = cfg.MODEL.ANCHORS_PER_SCLAE
 
-        label = [np.zeros((int(train_output_size[i]), int(train_output_size[i]), anchors_per_scale, 6+self.num_classes))
-                                                                      for i in range(3)]
+        label = [np.zeros((int(train_output_size[i]), 
+                           int(train_output_size[i]), 
+                           anchors_per_scale, 
+                           6+self.num_classes)) for i in range(3)]
         for i in range(3):
             label[i][..., 5] = 1.0
 
@@ -180,6 +179,7 @@ class Build_Dataset(Dataset):
         label_sbbox, label_mbbox, label_lbbox = label
         sbboxes, mbboxes, lbboxes = bboxes_xywh
 
+        
         return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
 

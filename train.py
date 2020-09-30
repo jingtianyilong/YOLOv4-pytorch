@@ -2,6 +2,7 @@ import logging
 import utils.gpu as gpu
 from model.build_model import Build_Model
 from model.loss.yolo_loss import YoloV4Loss
+from tqdm import tqdm
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -34,7 +35,7 @@ def detection_collate(batch):
 class Trainer(object):
     def __init__(self, log_dir, resume=False, accumulate=2, fp_16=True):
         init_seeds(0)
-        self.fp_16 = fp_16
+        self.fp_16 = cfg.FP16
         self.device = gpu.select_device()
         self.start_epoch = 0
         self.best_mAP = 0.
@@ -118,7 +119,7 @@ class Trainer(object):
 
             mloss = torch.zeros(4)
             logger.info("===Epoch:[{}/{}]===".format(epoch, self.epochs))
-            for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)  in enumerate(self.train_dataloader):
+            for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in tqdm(enumerate(self.train_dataloader),desc= "Training Batch: ", total= int(len(self.train_dataset)/cfg.TRAIN.BATCH_SIZE), unit="imgs"):
                 self.scheduler.step(len(self.train_dataloader)/(cfg.TRAIN.BATCH_SIZE)*epoch + i)
 
                 imgs = imgs.to(self.device)
@@ -165,22 +166,22 @@ class Trainer(object):
                 if self.multi_scale_train and (i+1) % 10 == 0:
                     self.train_dataset.img_size = random.choice(range(10, 20)) * 32
 
-                mAP = 0.
-                if epoch >= 0:
-                    logger.info("===== Validate =====".format(epoch, self.epochs))
-                    with torch.no_grad():
-                        APs, inference_time = Evaluator(self.yolov4, showatt=False).APs_voc()
-                        for i in APs:
-                            logger.info("{} --> mAP : {}".format(i, APs[i]))
-                            mAP += APs[i]
-                        mAP = mAP / self.train_dataset.num_classes
-                        logger.info("mAP : {}".format(mAP))
-                        logger.info("inference time: {:.2f} ms".format(inference_time))
-                        writer.add_scalar('mAP', mAP, epoch)
-                        self.__save_model_weights(epoch, mAP)
-                        logger.info('save weights done')
-                    logger.info("  ===test mAP:{:.3f}".format(mAP))
-           
+            # mAP = 0.
+            # if epoch >= 0:
+            #     logger.info("===== Validate =====".format(epoch, self.epochs))
+            #     with torch.no_grad():
+            #         APs, inference_time = Evaluator(self.yolov4, showatt=False).APs_voc()
+            #         for i in APs:
+            #             logger.info("{} --> mAP : {}".format(i, APs[i]))
+            #             mAP += APs[i]
+            #         mAP = mAP / self.train_dataset.num_classes
+            #         logger.info("mAP : {}".format(mAP))
+            #         logger.info("inference time: {:.2f} ms".format(inference_time))
+            #         writer.add_scalar('mAP', mAP, epoch)
+            #         self.__save_model_weights(epoch, mAP)
+            #         logger.info('save weights done')
+            #     logger.info("  ===test mAP:{:.3f}".format(mAP))
+        
             end = time.time()
             logger.info("  ===cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))

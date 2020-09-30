@@ -107,7 +107,9 @@ class Mixup(object):
         if len(bboxes_org) > 0:
             if random.random() > self.p:
                 lam = np.random.beta(1.5, 1.5)
+                # print("img_org",img_org.shape,"img_mix",img_mix.shape)
                 img = lam * img_org + (1 - lam) * img_mix
+                
                 bboxes_org = np.concatenate(
                     [bboxes_org, np.full((len(bboxes_org), 1), lam)], axis=1)
                 bboxes_mix = np.concatenate(

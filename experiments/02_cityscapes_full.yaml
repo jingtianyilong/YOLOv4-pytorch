@@ -2,11 +2,11 @@ MODEL:
  ANCHORS: [[[9, 21], [20, 46], [21, 81]], [[33, 86], [56, 140], [61, 148]], [[101, 227], [116, 243], [155, 376]]]
  
 TRAIN:
-  ANNO_FILE: "cityscapes_train.txt"
+  ANNO_FILE: "cityscapes_train_no_empty.txt"
   DATA_TYPE: 'Customer'  #DATA_TYPE: VOC ,COCO or Customer
   TRAIN_IMG_SIZE: 608
   AUGMENT: True
-  BATCH_SIZE: 128
+  BATCH_SIZE: 16
   MULTI_SCALE_TRAIN: True
   IOU_THRESHOLD_LOSS: 0.5
   YOLO_EPOCHS: 80
@@ -18,7 +18,7 @@ TRAIN:
   WARMUP_EPOCHS: 2  # or None
 
 VAL:
-  ANNO_FILE: "cityscapes_val.txt"
+  ANNO_FILE: "cityscapes_val_no_empty.txt"
   TEST_IMG_SIZE: 608
   BATCH_SIZE: 1
   NUMBER_WORKERS: 8
