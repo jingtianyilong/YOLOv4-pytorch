@@ -47,13 +47,17 @@ class Trainer(object):
             print('Using multi scales training')
         else:
             print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
-        self.train_dataset = data.Build_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
+        self.train_dataset = data.Build_Train_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN.BATCH_SIZE,
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
                                            shuffle=True, pin_memory=True)
-
+        # self.val_dataset = data.Build_Train_Dataset(anno_file=cfg.VAL.ANNO_FILE, anno_file_type="test", img_size=cfg.VAL.TEST_IMG_SIZE)
+        # self.val_dataloader = DataLoader(self.val_dataset,
+        #                                    batch_size=cfg.VAL.BATCH_SIZE,
+        #                                    num_workers=cfg.VAL.NUMBER_WORKERS,
+        #                                    shuffle=Fals, pin_memory=True)
         self.yolov4 = Build_Model(weight_path="yolov4.weights", resume=resume)
 
         self.yolov4 = self.yolov4.to(self.device)
@@ -107,65 +111,73 @@ class Trainer(object):
         global writer
         logger.info("Training start,img size is: {:d},batchsize is: {:d},work number is {:d}".format(cfg.TRAIN.TRAIN_IMG_SIZE,cfg.TRAIN.BATCH_SIZE,cfg.TRAIN.NUMBER_WORKERS))
         logger.info(self.yolov4)
-        logger.info("Train datasets number is : {}".format(len(self.train_dataset)))
+        n_train = len(self.train_dataset)
+        logger.info("Train datasets number is : {}".format(n_train))
 
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
 
         if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
-        logger.info("        =======  start  training   ======     ")
+        logger.info("\n===============  start  training   ===============")
         for epoch in range(self.start_epoch, self.epochs):
             start = time.time()
             self.yolov4.train()
-
             mloss = torch.zeros(4)
-            logger.info("===Epoch:[{}/{}]===".format(epoch, self.epochs))
-            for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in tqdm(enumerate(self.train_dataloader),desc= "Training Batch: ", total= int(len(self.train_dataset)/cfg.TRAIN.BATCH_SIZE), unit="imgs"):
-                self.scheduler.step(len(self.train_dataloader)/(cfg.TRAIN.BATCH_SIZE)*epoch + i)
+            with tqdm(total=n_train, desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
+                for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(self.train_dataloader):
+                    self.scheduler.step(len(self.train_dataloader)/(cfg.TRAIN.BATCH_SIZE)*epoch + i)
 
-                imgs = imgs.to(self.device)
-                label_sbbox = label_sbbox.to(self.device)
-                label_mbbox = label_mbbox.to(self.device)
-                label_lbbox = label_lbbox.to(self.device)
-                sbboxes = sbboxes.to(self.device)
-                mbboxes = mbboxes.to(self.device)
-                lbboxes = lbboxes.to(self.device)
+                    imgs = imgs.to(self.device)
+                    label_sbbox = label_sbbox.to(self.device)
+                    label_mbbox = label_mbbox.to(self.device)
+                    label_lbbox = label_lbbox.to(self.device)
+                    sbboxes = sbboxes.to(self.device)
+                    mbboxes = mbboxes.to(self.device)
+                    lbboxes = lbboxes.to(self.device)
 
-                p, p_d = self.yolov4(imgs)
+                    p, p_d = self.yolov4(imgs)
 
-                loss, loss_ciou, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
-                                                  label_lbbox, sbboxes, mbboxes, lbboxes)
+                    loss, loss_ciou, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
+                                                    label_lbbox, sbboxes, mbboxes, lbboxes)
 
-                if self.fp_16:
-                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
-                # Accumulate gradient for x batches before optimizing
-                if i % self.accumulate == 0:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
+                    if self.fp_16:
+                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
+                    # Accumulate gradient for x batches before optimizing
+                    if i % self.accumulate == 0:
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
 
-                # Update running mean of tracked metrics
-                loss_items = torch.tensor([loss_ciou, loss_conf, loss_cls, loss])
-                mloss = (mloss * i + loss_items) / (i + 1)
+                    # Update running mean of tracked metrics
+                    loss_items = torch.tensor([loss_ciou, loss_conf, loss_cls, loss])
+                    mloss = (mloss * i + loss_items) / (i + 1)
 
-                # Print batch results
-                if i % 10 == 0:
-                    logger.info("  === Epoch:[{:3}/{}],step:[{:3}/{}],img_size:[{:3}],total_loss:{:.4f}|loss_ciou:{:.4f}|loss_conf:{:.4f}|loss_cls:{:.4f}|lr:{:.4f}".format(
-                        epoch, self.epochs,i, len(self.train_dataloader) - 1, self.train_dataset.img_size,mloss[3], mloss[0], mloss[1],mloss[2],self.optimizer.param_groups[0]['lr']
-                    ))
-                    writer.add_scalar('loss_ciou', mloss[0],
-                                      len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                    writer.add_scalar('loss_conf', mloss[1],
-                                      len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                    writer.add_scalar('loss_cls', mloss[2],
-                                      len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                    writer.add_scalar('train_loss', mloss[3],
-                                      len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                # multi-sclae training (320-608 pixels) every 10 batches
-                if self.multi_scale_train and (i+1) % 10 == 0:
-                    self.train_dataset.img_size = random.choice(range(10, 20)) * 32
-
+                    # Print batch results
+                    if i % (10*cfg.TRAIN.BATCH_SIZE) == 0:
+                        logger.debug("img_size:[{:3}],total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.4f}".format(
+                            self.train_dataset.img_size, mloss[3], mloss[0], mloss[1], mloss[2], self.optimizer.param_groups[0]['lr']
+                        ))
+                        writer.add_scalar('loss_ciou', mloss[0],
+                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
+                        writer.add_scalar('loss_conf', mloss[1],
+                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
+                        writer.add_scalar('loss_cls', mloss[2],
+                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
+                        writer.add_scalar('train_loss', mloss[3],
+                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
+                        writer.add_scalar('lr', self.optimizer.param_groups[0]['lr'],
+                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
+                        pbar.set_postfix(**{"img_size": self.train_dataset.img_size,
+                                        "total_loss": float(mloss[3]),
+                                        "loss_ciou": float(mloss[0]),
+                                        "loss_conf": float(mloss[1]),
+                                        "loss_cls": float(mloss[0]),
+                                        "lr": float(self.optimizer.param_groups[0]['lr'])})
+                    # multi-sclae training (320-608 pixels) every 10 batches
+                    if self.multi_scale_train and (i+1) % 10 == 0:
+                        self.train_dataset.img_size = random.choice(range(10, 20)) * 32
+                    pbar.update(imgs.shape[0])
             # mAP = 0.
             # if epoch >= 0:
             #     logger.info("===== Validate =====".format(epoch, self.epochs))
@@ -183,7 +195,7 @@ class Trainer(object):
             #     logger.info("  ===test mAP:{:.3f}".format(mAP))
         
             end = time.time()
-            logger.info("  ===cost time:{:.4f}s".format(end - start))
+            logger.info("cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
         
 def getArgs():
