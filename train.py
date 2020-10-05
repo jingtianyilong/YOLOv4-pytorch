@@ -48,6 +48,7 @@ class Trainer(object):
         else:
             print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
         self.train_dataset = data.Build_Train_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
+        self.val_dataset = 
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN.BATCH_SIZE,
@@ -178,6 +179,7 @@ class Trainer(object):
                     if self.multi_scale_train and (i+1) % 10 == 0:
                         self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     pbar.update(imgs.shape[0])
+            for images, targets, boxes, confs in zip()
             # mAP = 0.
             # if epoch >= 0:
             #     logger.info("===== Validate =====".format(epoch, self.epochs))
@@ -197,7 +199,8 @@ class Trainer(object):
             end = time.time()
             logger.info("cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
-        
+
+
 def getArgs():
     parser = argparse.ArgumentParser(description='Train the Model on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
