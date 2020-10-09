@@ -17,7 +17,7 @@ from config import cfg
 from config import update_config
 from utils import cosine_lr_scheduler
 from utils.log import Logger
-from utils.utils import init_seed
+from utils.utils import init_seed, collate_fn
 from apex import amp
 from eval_coco import *
 from eval.cocoapi_evaluator import COCOAPIEvaluator
@@ -48,7 +48,9 @@ class Trainer(object):
         else:
             print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
         self.train_dataset = data.Build_Train_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
-        self.val_dataset = 
+        self.val_dataset = data.Build_VAL_Dataset(cfg)
+        self.val_loader = DataLoader(val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
+                            pin_memory=True, drop_last=True, collate_fn=val_collate)
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN.BATCH_SIZE,
@@ -200,6 +202,65 @@ class Trainer(object):
             logger.info("cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
 
+    @torch.no_grad()
+    def evaluate(self):
+        self.yolov4.train(False)
+        self.yolov4.eval()
+
+        coco = convert_to_coco_api(self.val_loader.dataset, bbox_fmt='coco')
+        coco_evaluator = CocoEvaluator(coco, iou_types = ["bbox"], bbox_fmt='coco')
+        
+        for images, targets in tqdm(self.val_loader,desc="Validation Batch: ", ncols=80):
+            model_input = [[cv2.resize(img, (cfg.w, cfg.h))] for img in images]
+            model_input = np.concatenate(model_input, axis=0)
+            model_input = model_input.transpose(0, 3, 1, 2)
+            model_input = torch.from_numpy(model_input).div(255.0)
+            model_input = model_input.to(self.device)
+            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            model_time = time.time()
+            outputs = self.yolov4(model_input)
+
+            model_time = time.time() - model_time
+
+            res = {}
+            for img, target, boxes, confs in zip(images, targets, outputs[0], outputs[1]):
+                img_height, img_width = img.shape[:2]
+                # boxes = output[...,:4].copy()  # output boxes in yolo format
+                boxes = boxes.squeeze(2).cpu().detach().numpy()
+                boxes[...,2:] = boxes[...,2:] - boxes[...,:2] # Transform [x1, y1, x2, y2] to [x1, y1, w, h]
+                boxes[...,0] = boxes[...,0]*img_width
+                boxes[...,1] = boxes[...,1]*img_height
+                boxes[...,2] = boxes[...,2]*img_width
+                boxes[...,3] = boxes[...,3]*img_height
+                boxes = torch.as_tensor(boxes, dtype=torch.float32)
+                # confs = output[...,4:].copy()
+                confs = confs.cpu().detach().numpy()
+                labels = np.argmax(confs, axis=1).flatten()
+                labels = torch.as_tensor(labels, dtype=torch.int64)
+                scores = np.max(confs, axis=1).flatten()
+                scores = torch.as_tensor(scores, dtype=torch.float32)
+                res[target["image_id"].item()] = {
+                    "boxes": boxes,
+                    "scores": scores,
+                    "labels": labels,
+                }
+            evaluator_time = time.time()
+            coco_evaluator.update(res)
+            evaluator_time = time.time() - evaluator_time
+
+        # gather the stats from all processes
+        coco_evaluator.synchronize_between_processes()
+
+        # accumulate predictions from all images
+        coco_evaluator.accumulate()
+        coco_evaluator.summarize()
+
+        return coco_evaluator
+    
+    
 
 def getArgs():
     parser = argparse.ArgumentParser(description='Train the Model on images and target masks',
