@@ -48,19 +48,12 @@ class Trainer(object):
         else:
             print('train img size is {}'.format(cfg.TRAIN.TRAIN_IMG_SIZE))
         self.train_dataset = data.Build_Train_Dataset(anno_file=cfg.TRAIN.ANNO_FILE, anno_file_type="train", img_size=cfg.TRAIN.TRAIN_IMG_SIZE)
-        self.val_dataset = data.Build_VAL_Dataset(cfg)
-        self.val_loader = DataLoader(val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
-                            pin_memory=True, drop_last=True, collate_fn=val_collate)
+
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN.BATCH_SIZE,
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
                                            shuffle=True, pin_memory=True)
-        # self.val_dataset = data.Build_Train_Dataset(anno_file=cfg.VAL.ANNO_FILE, anno_file_type="test", img_size=cfg.VAL.TEST_IMG_SIZE)
-        # self.val_dataloader = DataLoader(self.val_dataset,
-        #                                    batch_size=cfg.VAL.BATCH_SIZE,
-        #                                    num_workers=cfg.VAL.NUMBER_WORKERS,
-        #                                    shuffle=Fals, pin_memory=True)
         self.yolov4 = Build_Model(weight_path="yolov4.weights", resume=resume)
 
         self.yolov4 = self.yolov4.to(self.device)
@@ -107,8 +100,6 @@ class Trainer(object):
         if epoch > 0 and epoch % 10 == 0:
             torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
         del chkpt
-
-
 
     def train(self):
         global writer
@@ -181,22 +172,19 @@ class Trainer(object):
                     if self.multi_scale_train and (i+1) % 10 == 0:
                         self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     pbar.update(imgs.shape[0])
-            for images, targets, boxes, confs in zip()
-            # mAP = 0.
-            # if epoch >= 0:
-            #     logger.info("===== Validate =====".format(epoch, self.epochs))
-            #     with torch.no_grad():
-            #         APs, inference_time = Evaluator(self.yolov4, showatt=False).APs_voc()
-            #         for i in APs:
-            #             logger.info("{} --> mAP : {}".format(i, APs[i]))
-            #             mAP += APs[i]
-            #         mAP = mAP / self.train_dataset.num_classes
-            #         logger.info("mAP : {}".format(mAP))
-            #         logger.info("inference time: {:.2f} ms".format(inference_time))
-            #         writer.add_scalar('mAP', mAP, epoch)
-            #         self.__save_model_weights(epoch, mAP)
-            #         logger.info('save weights done')
-            #     logger.info("  ===test mAP:{:.3f}".format(mAP))
+                mAP = 0.
+                if epoch >= 0:
+                    evaluator = COCOAPIEvaluator(model_type='YOLOv4',
+                                                data_dir=cfg.DATA_PATH,
+                                                img_size=cfg.VAL["TEST_IMG_SIZE"],
+                                                confthre=0.08,
+                                                nmsthre=cfg.VAL["NMS_THRESH"])
+                    ap50_95, ap50 = evaluator.evaluate(self.yolov4)
+                    logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))
+                    writer.add_scalar('val/COCOAP50', ap50, epoch)
+                    writer.add_scalar('val/COCOAP50_95', ap50_95, epoch)
+                    self.__save_model_weights(epoch, ap50)
+                    print('save weights done')
         
             end = time.time()
             logger.info("cost time:{:.4f}s".format(end - start))
