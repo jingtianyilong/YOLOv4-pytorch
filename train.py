@@ -17,7 +17,7 @@ from config import cfg
 from config import update_config
 from utils import cosine_lr_scheduler
 from utils.log import Logger
-from utils.utils import init_seed, collate_fn
+from utils.utils import init_seed
 from apex import amp
 from eval_coco import *
 from eval.cocoapi_evaluator import COCOAPIEvaluator
@@ -33,13 +33,13 @@ def detection_collate(batch):
 
 
 class Trainer(object):
-    def __init__(self, log_dir, resume=False, accumulate=2, fp_16=True):
+    def __init__(self, log_dir, resume=False):
         init_seeds(0)
         self.fp_16 = cfg.FP16
         self.device = gpu.select_device()
         self.start_epoch = 0
         self.best_mAP = 0.
-        self.accumulate = accumulate
+        self.accumulate = cfg.TRAIN.ACCUMULATE
         self.log_dir = log_dir
         self.weight_path = "yolov4.weights"
         self.multi_scale_train = cfg.TRAIN.MULTI_SCALE_TRAIN
@@ -106,6 +106,7 @@ class Trainer(object):
         logger.info("Training start,img size is: {:d},batchsize is: {:d},work number is {:d}".format(cfg.TRAIN.TRAIN_IMG_SIZE,cfg.TRAIN.BATCH_SIZE,cfg.TRAIN.NUMBER_WORKERS))
         logger.info(self.yolov4)
         n_train = len(self.train_dataset)
+        n_step = n_train // cfg.TRAIN.BATCH_SIZE
         logger.info("Train datasets number is : {}".format(n_train))
 
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
@@ -114,12 +115,10 @@ class Trainer(object):
         logger.info("\n===============  start  training   ===============")
         for epoch in range(self.start_epoch, self.epochs):
             start = time.time()
-            self.yolov4.train()
             mloss = torch.zeros(4)
+            self.yolov4.train()
             with tqdm(total=n_train, desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
                 for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(self.train_dataloader):
-                    self.scheduler.step(len(self.train_dataloader)/(cfg.TRAIN.BATCH_SIZE)*epoch + i)
-
                     imgs = imgs.to(self.device)
                     label_sbbox = label_sbbox.to(self.device)
                     label_mbbox = label_mbbox.to(self.device)
@@ -140,6 +139,7 @@ class Trainer(object):
                         loss.backward()
                     # Accumulate gradient for x batches before optimizing
                     if i % self.accumulate == 0:
+                        self.scheduler.step(n_step*epoch + i)
                         self.optimizer.step()
                         self.optimizer.zero_grad()
 
@@ -148,106 +148,42 @@ class Trainer(object):
                     mloss = (mloss * i + loss_items) / (i + 1)
 
                     # Print batch results
-                    if i % (10*cfg.TRAIN.BATCH_SIZE) == 0:
-                        logger.debug("img_size:[{:3}],total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.4f}".format(
+                    if i % 10 == 0:
+                        logger.info("img_size:{:3}, total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.4f}".format(
                             self.train_dataset.img_size, mloss[3], mloss[0], mloss[1], mloss[2], self.optimizer.param_groups[0]['lr']
                         ))
-                        writer.add_scalar('loss_ciou', mloss[0],
-                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                        writer.add_scalar('loss_conf', mloss[1],
-                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                        writer.add_scalar('loss_cls', mloss[2],
-                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                        writer.add_scalar('train_loss', mloss[3],
-                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                        writer.add_scalar('lr', self.optimizer.param_groups[0]['lr'],
-                                        len(self.train_dataloader) / (cfg.TRAIN.BATCH_SIZE) * epoch + i)
-                        pbar.set_postfix(**{"img_size": self.train_dataset.img_size,
-                                        "total_loss": float(mloss[3]),
-                                        "loss_ciou": float(mloss[0]),
-                                        "loss_conf": float(mloss[1]),
-                                        "loss_cls": float(mloss[0]),
-                                        "lr": float(self.optimizer.param_groups[0]['lr'])})
+                        writer.add_scalar('train/loss_ciou', mloss[0], n_step * epoch + i)
+                        writer.add_scalar('train/loss_conf', mloss[1], n_step * epoch + i)
+                        writer.add_scalar('train/loss_cls', mloss[2], n_step * epoch + i)
+                        writer.add_scalar('train/train_loss', mloss[3], n_step * epoch + i)
+                        writer.add_scalar('train/lr', self.optimizer.param_groups[0]['lr'], n_step * epoch + i)
+                        # pbar.set_postfix(**{"img_size": self.train_dataset.img_size,
+                        #                 "total_loss": float(mloss[3]),
+                        #                 "loss_ciou": float(mloss[0]),
+                        #                 "loss_conf": float(mloss[1]),
+                        #                 "loss_cls": float(mloss[0]),
+                        #                 "lr": float(self.optimizer.param_groups[0]['lr'])})
                     # multi-sclae training (320-608 pixels) every 10 batches
-                    if self.multi_scale_train and (i+1) % 10 == 0:
-                        self.train_dataset.img_size = random.choice(range(10, 20)) * 32
+                    if self.multi_scale_train and (i+1) % 20 == 0:
+                        self.train_dataset.img_size = random.choice(range(10, 20, 2)) * 32
                     pbar.update(imgs.shape[0])
                 
-                mAP = 0.
-                if epoch >= 0:
-                    evaluator = COCOAPIEvaluator(cfg=cfg,
-                                                 img_size=cfg.VAL.TEST_IMG_SIZE,
-                                                 confthre=cfg.VAL.CONF_THRESH,
-                                                 nmsthre=cfg.VAL.NMS_THRESH)
-                    ap50_95, ap50 = evaluator.evaluate(self.yolov4)
-                    logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))
-                    writer.add_scalar('val/COCOAP50', ap50, epoch)
-                    writer.add_scalar('val/COCOAP50_95', ap50_95, epoch)
-                    self.__save_model_weights(epoch, ap50)
-                    print('save weights done')
+            mAP = 0.
+            if epoch >= cfg.TRAIN.WARMUP_EPOCHS:
+                evaluator = COCOAPIEvaluator(cfg=cfg,
+                                             img_size=cfg.VAL.TEST_IMG_SIZE,
+                                             confthre=cfg.VAL.CONF_THRESH,
+                                             nmsthre=cfg.VAL.NMS_THRESH)
+                ap50_95, ap50 = evaluator.evaluate(self.yolov4)
+                logger.info('mAP@50:95: {:.06f} | mAP@50: {:.06f}'.format(ap50_95, ap50))
+                writer.add_scalar('val/mAP@50', ap50, epoch)
+                writer.add_scalar('val/mAP@50:95', ap50_95, epoch)
+                self.__save_model_weights(epoch, ap50)
+                logger.info('save weights done')
         
             end = time.time()
             logger.info("cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
-
-    @torch.no_grad()
-    def evaluate(self):
-        self.yolov4.train(False)
-        self.yolov4.eval()
-
-        coco = convert_to_coco_api(self.val_loader.dataset, bbox_fmt='coco')
-        coco_evaluator = CocoEvaluator(coco, iou_types = ["bbox"], bbox_fmt='coco')
-        
-        for images, targets in tqdm(self.val_loader,desc="Validation Batch: ", ncols=80):
-            model_input = [[cv2.resize(img, (cfg.w, cfg.h))] for img in images]
-            model_input = np.concatenate(model_input, axis=0)
-            model_input = model_input.transpose(0, 3, 1, 2)
-            model_input = torch.from_numpy(model_input).div(255.0)
-            model_input = model_input.to(self.device)
-            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-            model_time = time.time()
-            outputs = self.yolov4(model_input)
-
-            model_time = time.time() - model_time
-
-            res = {}
-            for img, target, boxes, confs in zip(images, targets, outputs[0], outputs[1]):
-                img_height, img_width = img.shape[:2]
-                # boxes = output[...,:4].copy()  # output boxes in yolo format
-                boxes = boxes.squeeze(2).cpu().detach().numpy()
-                boxes[...,2:] = boxes[...,2:] - boxes[...,:2] # Transform [x1, y1, x2, y2] to [x1, y1, w, h]
-                boxes[...,0] = boxes[...,0]*img_width
-                boxes[...,1] = boxes[...,1]*img_height
-                boxes[...,2] = boxes[...,2]*img_width
-                boxes[...,3] = boxes[...,3]*img_height
-                boxes = torch.as_tensor(boxes, dtype=torch.float32)
-                # confs = output[...,4:].copy()
-                confs = confs.cpu().detach().numpy()
-                labels = np.argmax(confs, axis=1).flatten()
-                labels = torch.as_tensor(labels, dtype=torch.int64)
-                scores = np.max(confs, axis=1).flatten()
-                scores = torch.as_tensor(scores, dtype=torch.float32)
-                res[target["image_id"].item()] = {
-                    "boxes": boxes,
-                    "scores": scores,
-                    "labels": labels,
-                }
-            evaluator_time = time.time()
-            coco_evaluator.update(res)
-            evaluator_time = time.time() - evaluator_time
-
-        # gather the stats from all processes
-        coco_evaluator.synchronize_between_processes()
-
-        # accumulate predictions from all images
-        coco_evaluator.accumulate()
-        coco_evaluator.summarize()
-
-        return coco_evaluator
-    
     
 
 def getArgs():
@@ -256,7 +192,7 @@ def getArgs():
     parser.add_argument('--resume', type=bool, default=False, help="whether resume training")
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
     parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before optimizing')
-    parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')
+    parser.add_argument('--fp_16', type=bool, default=True, help='whither to use fp16 precision')
     args = parser.parse_args()
     return args
 
@@ -267,9 +203,9 @@ if __name__ == "__main__":
     update_config(cfg, args)
     init_seed(cfg.SEED)
     log_dir = os.path.join("log",os.path.basename(args.config_file)[:-5])
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-        os.makedirs(os.path.join(logdir,"checkpoints"))
+    # if not os.path.exists(log_dir):
+    os.makedirs(log_dir,exist_ok=True)
+    os.makedirs(os.path.join(log_dir,"checkpoints"),exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
 

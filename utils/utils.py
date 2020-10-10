@@ -11,9 +11,6 @@ def init_seed(number=356):
     np.random.seed(number)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    
-def collate_fn(batch):
-    return tuple(zip(*batch))
 
 def nms(bbox, thresh, score=None, limit=None):
     """Suppress bounding boxes according to their IoUs and confidence scores.
