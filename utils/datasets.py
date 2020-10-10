@@ -12,6 +12,8 @@ import random
 import utils.data_augment as dataAug
 import utils.tools as tools
 
+def get_image_id(filename):
+    return int(os.path.basename(filename).split(".")[0])
 
 class Build_Train_Dataset(Dataset):
     def __init__(self, anno_file, anno_file_type, img_size=416):
@@ -182,10 +184,10 @@ class Build_Train_Dataset(Dataset):
 
 class Build_VAL_Dataset(Dataset):
     def __init__(self, cfg):
-        super(Yolo_dataset, self).__init__()
+        super().__init__()
         self.cfg = cfg
         truth = {}
-        f = open(os.path.join(cfg.DATA_PATH,cfg.VAL.ANNO_FILE), 'r', encoding='utf-8')
+        f = open(os.path.join(cfg.DATA_PATH, cfg.VAL.ANNO_FILE), 'r', encoding='utf-8')
         for line in f.readlines():
             data = line.rstrip().split(" ")
             truth[data[0]] = []
@@ -195,11 +197,18 @@ class Build_VAL_Dataset(Dataset):
 
         self.truth = truth
         self.imgs = list(self.truth.keys())
-
+        
+    def get_image_id(filename):
+        return int(os.path.basename(filename).split(".")[0])
+    
+    def __len__(self):
+        return len(self.truth.keys())
+    
     def __getitem__(self, index):
         img_path = self.imgs[index]
         bboxes_with_cls_id = np.array(self.truth.get(img_path), dtype=np.float)
-        img = cv2.imread(os.path.join(self.cfg.dataset_dir, img_path))
+        
+        img = cv2.imread(os.path.join(cfg.DATA_PATH, img_path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         num_objs = len(bboxes_with_cls_id)

@@ -1,20 +1,20 @@
 import os
 import numpy as np
-
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import cv2
 from pycocotools.coco import COCO
-from dataset import Build_VAL_Dataset
-
+from utils.datasets import Build_VAL_Dataset
 from utils.utils import *
 
+def val_collate(batch):
+    return tuple(zip(*batch))
 
 class COCODataset(Dataset):
     """
     COCO dataset class.
     """
-    def __init__(self, lable_path, cfg):
+    def __init__(self, cfg):
         """
         COCO dataset initialization. Annotation data are read into memory by COCO API.
         Args:
@@ -26,19 +26,16 @@ class COCODataset(Dataset):
             min_size (int): bounding boxes smaller than this are ignored
             debug (bool): if True, only one data id is selected from the dataset
         """
-        self.model_type = model_type
-        
-        self.val_dataset = data.Build_VAL_Dataset(cfg)
-        self.val_loader = DataLoader(val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
+        self.cfg = cfg
+        self.val_dataset = Build_VAL_Dataset(cfg)
+        self.val_loader = DataLoader(self.val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
                             pin_memory=True, drop_last=True, collate_fn=val_collate)
-        self.coco = convert_to_coco_api(bbox_fmt='yolo')
+        self.coco = self.convert_to_coco_api()
         
         self.ids = self.coco.getImgIds()
-        if debug:
-            self.ids = self.ids[1:2]
-            print("debug mode...", self.ids)
+
         self.class_ids = sorted(self.coco.getCatIds())
-        self.name = name
+        # self.name = name
         self.max_labels = 50
         self.img_size = cfg.VAL.TEST_IMG_SIZE
         self.min_size = 1
@@ -99,22 +96,22 @@ class COCODataset(Dataset):
         #     padded_labels[range(len(labels))[:self.max_labels]
         #                   ] = labels[:self.max_labels]
         # padded_labels = torch.from_numpy(padded_labels)
-                id_ = self.ids[index]
+        id_ = self.ids[index]
 
         anno_ids = self.coco.getAnnIds(imgIds=[int(id_)], iscrowd=None)
         annotations = self.coco.loadAnns(anno_ids)
 
         lrflip = False
-        if np.random.rand() > 0.5 and self.lrflip == True:
-            lrflip = True
+        # if np.random.rand() > 0.5 and self.lrflip == True:
+        #     lrflip = True
 
         # load image and preprocess
-        img_file = os.path.join(self.data_dir, self.name,
-                                '{:012}'.format(id_) + '.jpg')
+        img_file = os.path.join(self.cfg.DATA_PATH, "images",
+                                '{:07d}.png'.format(id_))
         img = cv2.imread(img_file)
 
-        img, info_img = preprocess(img, self.img_size, jitter=self.jitter,
-                                   random_placing=self.random_placing)
+        img, info_img = preprocess(img, self.img_size, jitter=0,
+                                   random_placing=0)
 
 
         img = np.transpose(img / 255., (2, 0, 1))
@@ -131,8 +128,7 @@ class COCODataset(Dataset):
         padded_labels = np.zeros((self.max_labels, 5))
         if len(labels) > 0:
             labels = np.stack(labels)
-            if 'YOLO' in self.model_type:
-                labels = label2yolobox(labels, info_img, self.img_size, lrflip)
+            labels = label2yolobox(labels, info_img, self.img_size, lrflip)
             padded_labels[range(len(labels))[:self.max_labels]
                           ] = labels[:self.max_labels]
         padded_labels = torch.from_numpy(padded_labels)
@@ -143,15 +139,15 @@ class COCODataset(Dataset):
         """
         """
         print("in function convert_to_coco_api...")
-        coco = COCO()
+        coco_ds = COCO()
         # annotation IDs need to start at 1, not 0, see torchvision issue #1530
         ann_id = 1
         dataset = {'images': [], 'categories': [], 'annotations': []}
         categories = set()
-        for img_idx in range(len(self.val_loader)):
+        for img_idx in range(len(self.val_dataset)):
             # find better way to get target
             # targets = ds.get_annotations(img_idx)
-            img, targets = self.val_loader[img_idx]
+            img, targets = self.val_dataset[img_idx]
             image_id = targets["image_id"].item()
             img_dict = {}
             img_dict['id'] = image_id

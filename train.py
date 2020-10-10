@@ -172,13 +172,13 @@ class Trainer(object):
                     if self.multi_scale_train and (i+1) % 10 == 0:
                         self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     pbar.update(imgs.shape[0])
+                
                 mAP = 0.
                 if epoch >= 0:
-                    evaluator = COCOAPIEvaluator(model_type='YOLOv4',
-                                                data_dir=cfg.DATA_PATH,
-                                                img_size=cfg.VAL["TEST_IMG_SIZE"],
-                                                confthre=0.08,
-                                                nmsthre=cfg.VAL["NMS_THRESH"])
+                    evaluator = COCOAPIEvaluator(cfg=cfg,
+                                                 img_size=cfg.VAL.TEST_IMG_SIZE,
+                                                 confthre=cfg.VAL.CONF_THRESH,
+                                                 nmsthre=cfg.VAL.NMS_THRESH)
                     ap50_95, ap50 = evaluator.evaluate(self.yolov4)
                     logger.info('ap50_95:{}|ap50:{}'.format(ap50_95, ap50))
                     writer.add_scalar('val/COCOAP50', ap50, epoch)
@@ -269,6 +269,7 @@ if __name__ == "__main__":
     log_dir = os.path.join("log",os.path.basename(args.config_file)[:-5])
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+        os.makedirs(os.path.join(logdir,"checkpoints"))
     writer = SummaryWriter(log_dir=log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
 

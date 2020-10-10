@@ -177,6 +177,3 @@ class Evaluator(object):
             shutil.rmtree(cachedir)
 
         return APs
-
-class COCO_Evaluator():
-    def __init__(self, model, showatt)

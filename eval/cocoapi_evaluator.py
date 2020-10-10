@@ -15,7 +15,7 @@ class COCOAPIEvaluator():
     All the data in the val2017 dataset are processed \
     and evaluated by COCO API.
     """
-    def __init__(self, model_type, data_dir, img_size, confthre, nmsthre):
+    def __init__(self, cfg, img_size, confthre, nmsthre):
         """
         Args:
             model_type (str): model name specified in config file
@@ -32,7 +32,7 @@ class COCOAPIEvaluator():
         augmentation = {'LRFLIP': False, 'JITTER': 0, 'RANDOM_PLACING': False,
                         'HUE': 0, 'SATURATION': 0, 'EXPOSURE': 0, 'RANDOM_DISTORT': False}
 
-        self.dataset = COCODataset(lable_path, cfg)
+        self.dataset = COCODataset(cfg)
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=False, pin_memory=True,num_workers=cfg.VAL.NUMBER_WORKERS)
         self.img_size = img_size
