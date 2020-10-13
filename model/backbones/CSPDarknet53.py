@@ -170,7 +170,7 @@ class CSPDarknet53(nn.Module):
         return features[-self.num_features:]
 
     def _initialize_weights(self):
-        print("**" * 10, "Initing CSPDarknet53 weights", "**" * 10)
+        # print("**" * 10, "Initing CSPDarknet53 weights", "**" * 10)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -179,12 +179,12 @@ class CSPDarknet53(nn.Module):
                 if m.bias is not None:
                     m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
 
     def load_CSPdarknet_weights(self, weight_file, cutoff=52):
         "https://github.com/ultralytics/yolov3/blob/master/models.py"
@@ -225,7 +225,7 @@ class CSPDarknet53(nn.Module):
                     bn_layer.running_var.data.copy_(bn_rv)
                     ptr += num_b
 
-                    print("loading weight {}".format(bn_layer))
+                    # print("loading weight {}".format(bn_layer))
                 else:
                     # Load conv. bias
                     num_b = conv_layer.bias.numel()
@@ -238,7 +238,7 @@ class CSPDarknet53(nn.Module):
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
-                print("loading weight {}".format(conv_layer))
+                # print("loading weight {}".format(conv_layer))
 
 
 def _BuildCSPDarknet53(weight_path, resume):

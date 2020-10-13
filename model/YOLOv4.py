@@ -41,7 +41,7 @@ class SpatialPyramidPooling(nn.Module):
         return features
 
     def __initialize_weights(self):
-        print("**" * 10, "Initing head_conv weights", "**" * 10)
+        # print("**" * 10, "Initing head_conv weights", "**" * 10)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -49,12 +49,12 @@ class SpatialPyramidPooling(nn.Module):
                 if m.bias is not None:
                     m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
 
 
 class Upsample(nn.Module):
@@ -147,12 +147,12 @@ class PANet(nn.Module):
                 if m.bias is not None:
                     m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
 
 class PredictNet(nn.Module):
     def __init__(self, feature_channels, target_channels):
@@ -172,7 +172,7 @@ class PredictNet(nn.Module):
         return predicts
 
     def __initialize_weights(self):
-        print("**" * 10, "Initing PredictNet weights", "**" * 10)
+        # print("**" * 10, "Initing PredictNet weights", "**" * 10)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -180,12 +180,12 @@ class PredictNet(nn.Module):
                 if m.bias is not None:
                     m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
 
 class YOLOv4(nn.Module):
     def __init__(self, weight_path=None, out_channels=255, resume=False):

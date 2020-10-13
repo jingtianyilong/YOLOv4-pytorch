@@ -39,16 +39,7 @@ class COCODataset(Dataset):
         self.max_labels = 50
         self.img_size = cfg.VAL.TEST_IMG_SIZE
         self.min_size = 1
-        # f = open(lable_path, 'r', encoding='utf-8')
-        # for line in f.readlines():
-        #     data = line.rstrip().split(" ")
-        #     truth[data[0]] = []
-        #     if len(data) > 1:
-        #         for i in data[1:]:
-        #             truth[data[0]].append([int(float(j)) for j in i.split(',')])
 
-        # self.truth = truth
-        # self.imgs = list(self.truth.keys())
 
     def __len__(self):
         return len(self.ids)
@@ -73,47 +64,17 @@ class COCODataset(Dataset):
                 dx, dy (int): pad size
             id_ (int): same as the input index. Used for evaluation.
         """
-        # id_ = int(os.path.basename(img_path).split(".")[0])
-        # img_path = self.imgs[index]
-        # bboxes_with_cls_id = np.array(self.truth.get(img_path), dtype=np.float)
-        # boxes = bboxes_with_cls_id[...,:4]
-        # boxes[..., 2:] = boxes[..., 2:] - boxes[..., :2]  # box width, box height
-        # img = cv2.imread(os.path.join(self.cfg.dataset_dir, img_path))
-        # img, info_img = preprocess(img, self.img_size, jitter=self.jitter,
-        #                            random_placing=self.random_placing)
-
-        # img = np.transpose(img / 255., (2, 0, 1))
-
-        # labels = []
-        # for box in boxes:
-        #     if box[2] > self.min_size and box[3] > self.min_size:
-        #         labels.append(box)
-
-        # padded_labels = np.zeros((self.max_labels, 5))
-        # if len(labels) > 0:
-        #     labels = np.stack(labels)
-        #     labels = label2yolobox(labels, info_img, self.img_size, lrflip)
-        #     padded_labels[range(len(labels))[:self.max_labels]
-        #                   ] = labels[:self.max_labels]
-        # padded_labels = torch.from_numpy(padded_labels)
         id_ = self.ids[index]
 
         anno_ids = self.coco.getAnnIds(imgIds=[int(id_)], iscrowd=None)
         annotations = self.coco.loadAnns(anno_ids)
 
-        lrflip = False
-        # if np.random.rand() > 0.5 and self.lrflip == True:
-        #     lrflip = True
-
         # load image and preprocess
         img_file = os.path.join(self.cfg.DATA_PATH, "images",
                                 '{:07d}.png'.format(id_))
         img = cv2.imread(img_file)
-
         img, info_img = preprocess(img, self.img_size, jitter=0,
                                    random_placing=0)
-
-
         img = np.transpose(img / 255., (2, 0, 1))
 
 
@@ -128,7 +89,7 @@ class COCODataset(Dataset):
         padded_labels = np.zeros((self.max_labels, 5))
         if len(labels) > 0:
             labels = np.stack(labels)
-            labels = label2yolobox(labels, info_img, self.img_size, lrflip)
+            labels = label2yolobox(labels, info_img, self.img_size, False)
             padded_labels[range(len(labels))[:self.max_labels]
                           ] = labels[:self.max_labels]
         padded_labels = torch.from_numpy(padded_labels)

@@ -51,7 +51,7 @@ class Trainer(object):
 
         self.epochs = cfg.TRAIN.YOLO_EPOCHS if cfg.MODEL.MODEL_TYPE == 'YOLOv4' else cfg.TRAIN.Mobilenet_YOLO_EPOCHS
         self.train_dataloader = DataLoader(self.train_dataset,
-                                           batch_size=cfg.TRAIN.BATCH_SIZE,
+                                           batch_size=cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE,
                                            num_workers=cfg.TRAIN.NUMBER_WORKERS,
                                            shuffle=True, pin_memory=True)
         self.yolov4 = Build_Model(weight_path="yolov4.weights", resume=resume)
@@ -103,10 +103,10 @@ class Trainer(object):
 
     def train(self):
         global writer
-        logger.info("Training start,img size is: {:d},batchsize is: {:d},work number is {:d}".format(cfg.TRAIN.TRAIN_IMG_SIZE,cfg.TRAIN.BATCH_SIZE,cfg.TRAIN.NUMBER_WORKERS))
+        logger.info("Training start,img size is: {:d},batchsize is: {:d}, subdivision: {:d}, worker number is {:d}".format(cfg.TRAIN.TRAIN_IMG_SIZE, cfg.TRAIN.BATCH_SIZE, cfg.TRAIN.ACCUMULATE, cfg.TRAIN.NUMBER_WORKERS))
         logger.info(self.yolov4)
         n_train = len(self.train_dataset)
-        n_step = n_train // cfg.TRAIN.BATCH_SIZE
+        n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
 
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
@@ -119,6 +119,8 @@ class Trainer(object):
             self.yolov4.train()
             with tqdm(total=n_train, desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
                 for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(self.train_dataloader):
+                    self.scheduler.step(n_step*epoch + i)
+
                     imgs = imgs.to(self.device)
                     label_sbbox = label_sbbox.to(self.device)
                     label_mbbox = label_mbbox.to(self.device)
@@ -139,7 +141,6 @@ class Trainer(object):
                         loss.backward()
                     # Accumulate gradient for x batches before optimizing
                     if i % self.accumulate == 0:
-                        self.scheduler.step(n_step*epoch + i)
                         self.optimizer.step()
                         self.optimizer.zero_grad()
 
@@ -203,10 +204,11 @@ if __name__ == "__main__":
     update_config(cfg, args)
     init_seed(cfg.SEED)
     log_dir = os.path.join("log",os.path.basename(args.config_file)[:-5])
+
     # if not os.path.exists(log_dir):
     os.makedirs(log_dir,exist_ok=True)
     os.makedirs(os.path.join(log_dir,"checkpoints"),exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
     logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
-
+    logger.debug(cfg)
     Trainer(log_dir,resume= args.resume).train()
