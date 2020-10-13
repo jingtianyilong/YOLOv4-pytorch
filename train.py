@@ -115,11 +115,9 @@ class Trainer(object):
         logger.info("\n===============  start  training   ===============")
         for epoch in range(self.start_epoch, self.epochs):
             start = time.time()
-            mloss = torch.zeros(4)
             self.yolov4.train()
             with tqdm(total=n_train, desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
                 for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(self.train_dataloader):
-                    self.scheduler.step(n_step*epoch + i)
 
                     imgs = imgs.to(self.device)
                     label_sbbox = label_sbbox.to(self.device)
@@ -141,32 +139,29 @@ class Trainer(object):
                         loss.backward()
                     # Accumulate gradient for x batches before optimizing
                     if i % self.accumulate == 0:
+                        self.scheduler.step(n_step*epoch + i)
                         self.optimizer.step()
                         self.optimizer.zero_grad()
 
-                    # Update running mean of tracked metrics
-                    loss_items = torch.tensor([loss_ciou, loss_conf, loss_cls, loss])
-                    mloss = (mloss * i + loss_items) / (i + 1)
-
                     # Print batch results
-                    if i % 10 == 0:
+                    if i % (5*self.accumulate) == 0:
                         logger.info("img_size:{:3}, total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.4f}".format(
-                            self.train_dataset.img_size, mloss[3], mloss[0], mloss[1], mloss[2], self.optimizer.param_groups[0]['lr']
+                            self.train_dataset.img_size, loss, loss_ciou, loss_conf, loss_cls, self.optimizer.param_groups[0]['lr']
                         ))
-                        writer.add_scalar('train/loss_ciou', mloss[0], n_step * epoch + i)
-                        writer.add_scalar('train/loss_conf', mloss[1], n_step * epoch + i)
-                        writer.add_scalar('train/loss_cls', mloss[2], n_step * epoch + i)
-                        writer.add_scalar('train/train_loss', mloss[3], n_step * epoch + i)
+                        writer.add_scalar('train/loss_ciou', loss_ciou, n_step * epoch + i)
+                        writer.add_scalar('train/loss_conf', loss_conf, n_step * epoch + i)
+                        writer.add_scalar('train/loss_cls', loss_cls, n_step * epoch + i)
+                        writer.add_scalar('train/train_loss', loss, n_step * epoch + i)
                         writer.add_scalar('train/lr', self.optimizer.param_groups[0]['lr'], n_step * epoch + i)
                         # pbar.set_postfix(**{"img_size": self.train_dataset.img_size,
-                        #                 "total_loss": float(mloss[3]),
-                        #                 "loss_ciou": float(mloss[0]),
-                        #                 "loss_conf": float(mloss[1]),
-                        #                 "loss_cls": float(mloss[0]),
+                        #                 "total_loss": float(loss),
+                        #                 "loss_ciou": float(loss_ciou),
+                        #                 "loss_conf": float(loss_conf),
+                        #                 "loss_cls": float(loss_ciou),
                         #                 "lr": float(self.optimizer.param_groups[0]['lr'])})
                     # multi-sclae training (320-608 pixels) every 10 batches
-                    if self.multi_scale_train and (i+1) % 20 == 0:
-                        self.train_dataset.img_size = random.choice(range(10, 20, 2)) * 32
+                    if self.multi_scale_train and (i+1) % (5*self.accumulate) == 0:
+                        self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     pbar.update(imgs.shape[0])
                 
             mAP = 0.

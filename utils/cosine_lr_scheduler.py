@@ -21,7 +21,9 @@ class CosineDecayLR(object):
 
     def step(self, t):
         if self.__warmup and t < self.__warmup:
-            lr = self.__lr_max / self.__warmup * t
+            T_max = self.__warmup
+            lr = 0.5 * self.__lr_max * (1 - np.cos(t/T_max * np.pi))
+            # lr = (t/T_max) ** 2 * self.__lr_max
         else:
             T_max = self.__T_max - self.__warmup
             t = t - self.__warmup

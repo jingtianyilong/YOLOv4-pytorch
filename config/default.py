@@ -6,7 +6,7 @@ _C.SEED = 358
 _C.DATA_PATH = "/data"
 _C.PROJECT_PATH = "/data"
 _C.DETECTION_PATH = "/"
-_C.FP16 = False
+_C.FP16 = True
 
 # model
 _C.MODEL = CN()

@@ -105,7 +105,7 @@ class CSPFirstStage(nn.Module):
 
         x1 = self.blocks_conv(x1)
 
-        x = torch.cat([x0, x1], dim=1)
+        x = torch.cat([x1, x0], dim=1)
         x = self.concat_conv(x)
 
         return x
@@ -134,7 +134,7 @@ class CSPStage(nn.Module):
 
         x1 = self.blocks_conv(x1)
 
-        x = torch.cat([x0, x1], dim=1)
+        x = torch.cat([x1, x0], dim=1)
         x = self.concat_conv(x)
 
         return x
