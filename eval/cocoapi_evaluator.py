@@ -101,6 +101,6 @@ class COCOAPIEvaluator():
             cocoEval.evaluate()
             cocoEval.accumulate()
             cocoEval.summarize()
-            return cocoEval.stat
+            return cocoEval.stats
         else:
             return [0]*12
