@@ -1,4 +1,4 @@
-import logging
+import logging, datetime
 import utils.gpu as gpu
 from model.build_model import Build_Model
 from model.loss.yolo_loss import YoloV4Loss
@@ -145,7 +145,7 @@ class Trainer(object):
 
                     # Print batch results
                     if i % (5*self.accumulate) == 0:
-                        logger.info("img_size:{:3}, total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.4f}".format(
+                        logger.info("img_size:{:3}, total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.6f}".format(
                             self.train_dataset.img_size, loss, loss_ciou, loss_conf, loss_cls, self.optimizer.param_groups[0]['lr']
                         ))
                         writer.add_scalar('train/loss_ciou', loss_ciou, n_step * epoch + i)
@@ -165,22 +165,52 @@ class Trainer(object):
                     pbar.update(imgs.shape[0])
                 
             mAP = 0.
-            if epoch >= cfg.TRAIN.WARMUP_EPOCHS:
-                evaluator = COCOAPIEvaluator(cfg=cfg,
-                                             img_size=cfg.VAL.TEST_IMG_SIZE,
-                                             confthre=cfg.VAL.CONF_THRESH,
-                                             nmsthre=cfg.VAL.NMS_THRESH)
-                ap50_95, ap50 = evaluator.evaluate(self.yolov4)
-                logger.info('mAP@50:95: {:.06f} | mAP@50: {:.06f}'.format(ap50_95, ap50))
-                writer.add_scalar('val/mAP@50', ap50, epoch)
-                writer.add_scalar('val/mAP@50:95', ap50_95, epoch)
-                self.__save_model_weights(epoch, ap50)
-                logger.info('save weights done')
+            evaluator = COCOAPIEvaluator(cfg=cfg,
+                                            img_size=cfg.VAL.TEST_IMG_SIZE,
+                                            confthre=cfg.VAL.CONF_THRESH,
+                                            nmsthre=cfg.VAL.NMS_THRESH)
+            ap50_95, ap50, cocoeval = evaluator.evaluate(self.yolov4)
+            logger.debug('mAP_50:95: {:.06f} | mAP_50: {:.06f}'.format(ap50_95, ap50))
+            writer.add_scalar('val/mAP_50', ap50, epoch)
+            writer.add_scalar('val/mAP_50:95', ap50_95, epoch)
+            self.__save_model_weights(epoch, ap50)
+            logger.info(str(cocoeval))
+            logger.info('save weights done')
         
             end = time.time()
             logger.info("cost time:{:.4f}s".format(end - start))
         logger.info("=====Training Finished.   best_test_mAP:{:.3f}%====".format(self.best_mAP))
-    
+        
+def init_logger(log_dir=None, log_level=logging.INFO, mode='w', stdout=True):
+    """
+    log_dir: 日志文件的文件夹路径
+    mode: 'a', append; 'w', 覆盖原文件写入.
+    """
+    def get_date_str():
+        now = datetime.datetime.now()
+        return now.strftime('%Y-%m-%d_%H-%M-%S')
+
+    fmt = '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s: %(message)s'
+    log_file = 'log_' + get_date_str() + '.txt'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    log_file = os.path.join(log_dir, log_file)
+    # 此处不能使用logging输出
+    print('log file path:' + log_file)
+
+    logging.basicConfig(level=logging.DEBUG,
+                        format=fmt,
+                        filename=log_file,
+                        filemode=mode)
+
+    if stdout:
+        console = logging.StreamHandler(stream=sys.stdout)
+        console.setLevel(log_level)
+        formatter = logging.Formatter(fmt)
+        console.setFormatter(formatter)
+        logging.getLogger('').addHandler(console)
+
+    return logging    
 
 def getArgs():
     parser = argparse.ArgumentParser(description='Train the Model on images and target masks',
@@ -204,6 +234,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir,exist_ok=True)
     os.makedirs(os.path.join(log_dir,"checkpoints"),exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
-    logger = Logger(log_file_name=os.path.join(log_dir,'log.txt'), log_level=logging.DEBUG, logger_name='YOLOv4').get_log()
+    logger = init_logger(log_dir=log_dir)
     logger.debug(cfg)
+
     Trainer(log_dir,resume= args.resume).train()
