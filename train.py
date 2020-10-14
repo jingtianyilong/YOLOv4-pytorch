@@ -116,7 +116,7 @@ class Trainer(object):
         for epoch in range(self.start_epoch, self.epochs):
             start = time.time()
             self.yolov4.train()
-            with tqdm(total=n_train, desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
+            with tqdm(total=n_train, unit="imgs", desc=f'Epoch {epoch}/{self.epochs}', ncols=30) as pbar:
                 for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(self.train_dataloader):
 
                     imgs = imgs.to(self.device)
@@ -145,7 +145,7 @@ class Trainer(object):
 
                     # Print batch results
                     if i % (5*self.accumulate) == 0:
-                        logger.info("img_size:{:3}, total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.6f}".format(
+                        logger.info("{:3}: total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.6f}".format(
                             self.train_dataset.img_size, loss, loss_ciou, loss_conf, loss_cls, self.optimizer.param_groups[0]['lr']
                         ))
                         writer.add_scalar('train/loss_ciou', loss_ciou, n_step * epoch + i)
@@ -169,12 +169,34 @@ class Trainer(object):
                                             img_size=cfg.VAL.TEST_IMG_SIZE,
                                             confthre=cfg.VAL.CONF_THRESH,
                                             nmsthre=cfg.VAL.NMS_THRESH)
-            ap50_95, ap50, cocoeval = evaluator.evaluate(self.yolov4)
-            logger.debug('mAP_50:95: {:.06f} | mAP_50: {:.06f}'.format(ap50_95, ap50))
-            writer.add_scalar('val/mAP_50', ap50, epoch)
-            writer.add_scalar('val/mAP_50:95', ap50_95, epoch)
-            self.__save_model_weights(epoch, ap50)
-            logger.info(str(cocoeval))
+            coco_stat = evaluator.evaluate(self.yolov4)
+            logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:.06f}".format(coco_stat[0]))
+            logger.info("Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = {:.06f}".format(coco_stat[1]))            
+            logger.info("Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = {:.06f}".format(coco_stat[2]))            
+            logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = {:.06f}".format(coco_stat[3]))            
+            logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = {:.06f}".format(coco_stat[4]))            
+            logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = {:.06f}".format(coco_stat[5]))            
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = {:.06f}".format(coco_stat[6]))            
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = {:.06f}".format(coco_stat[7]))            
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:.06f}".format(coco_stat[8]))            
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = {:.06f}".format(coco_stat[9]))            
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = {:.06f}".format(coco_stat[10])) 
+            logger.info("Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = {:.06f}".format(coco_stat[11]))             
+            writer.add_scalar('val/mAP_50', coco_stat[0], epoch)
+            writer.add_scalar('val/mAP_50_95', coco_stat[1], epoch)
+            writer.add_scalar('val/mAP_50', coco_stat[2], epoch)
+            writer.add_scalar('val/mAP_75', coco_stat[3], epoch)
+            writer.add_scalar('val/mAP_small', coco_stat[4], epoch)
+            writer.add_scalar('val/mAP_medium', coco_stat[5], epoch)
+            writer.add_scalar('val/mAP_large', coco_stat[6], epoch)
+            writer.add_scalar('val/mAR_1', coco_stat[7], epoch)
+            writer.add_scalar('val/mAR_10', coco_stat[8], epoch)
+            writer.add_scalar('val/mAR_100', coco_stat[9], epoch)
+            writer.add_scalar('val/mAR_small', coco_stat[10], epoch)
+            writer.add_scalar('val/mAR_medium', coco_stat[11], epoch)
+            writer.add_scalar('val/mAR_medium', coco_stat[12], epoch)
+
+            self.__save_model_weights(epoch, coco_stat[0])
             logger.info('save weights done')
         
             end = time.time()
