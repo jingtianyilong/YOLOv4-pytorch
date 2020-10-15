@@ -266,7 +266,7 @@ def draw_bounding_box_on_image(image,
   draw.line([(left, top), (left, bottom), (right, bottom),
              (right, top), (left, top)], width=2, fill=color)
   try:
-    font = ImageFont.truetype('arial.ttf', 24)
+    font = ImageFont.truetype('/workspace/code/FiraCode-Bold.ttf', 24)
   except IOError:
     font = ImageFont.load_default()
 
@@ -285,15 +285,15 @@ def draw_bounding_box_on_image(image,
   for display_str in display_str_list[::-1]:
     text_width, text_height = font.getsize(display_str)
     margin = np.ceil(0.05 * text_height)
-    # draw.rectangle(
-    #   [(left, text_bottom - text_height - 2 * margin), (left + text_width,
-    #                                                     text_bottom)],
-    #   fill=color)
-    # draw.text(
-    #   (left + margin, text_bottom - text_height - margin),
-    #   display_str,
-    #   fill='black',
-    #   font=font)
+    draw.rectangle(
+      [(left, text_bottom - text_height - 2 * margin), (left + text_width,
+                                                        text_bottom)],
+      fill=color)
+    draw.text(
+      (left + margin, text_bottom - text_height - margin),
+      display_str,
+      fill='black',
+      font=font)
     text_bottom -= text_height - 2 * margin
 
 
