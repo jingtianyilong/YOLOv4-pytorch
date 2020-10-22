@@ -37,9 +37,10 @@ if __name__ == "__main__":
     anchor_list=np.array(anchor_list)
     anchor_list.sort(axis=0)
     # anchor_list = np.array(list(map(int,np.concatenate(anchor_list))))
-    print([anchor_list[:int(num_of_anchor/3)].tolist(),
-            anchor_list[int(num_of_anchor/3):-int(num_of_anchor/3)].tolist(),
-            anchor_list[-int(num_of_anchor/3):].tolist()])
-    # anchor_list.reshape(3,3,-1)
-    # print(anchor_list)
+    small = anchor_list[:int(num_of_anchor/3)] / 8
+    medium = anchor_list[int(num_of_anchor/3):-int(num_of_anchor/3)] / 16
+    large = anchor_list[-int(num_of_anchor/3):] / 32
+    
+    print([small.tolist(),medium.tolist(), large.tolist()])
+
     
