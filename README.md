@@ -27,3 +27,7 @@ To output detection results of the first 20 images from validation set. You can 
 ```
 visualize_demo.py --config_file experiments/your_file.yaml
 ```
+
+# References:
+argusswift/YOLOv4-pytorch: https://github.com/argusswift/YOLOv4-pytorch
+AlexeyAB/darknet: https://github.com/AlexeyAB/darknet/
