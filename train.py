@@ -239,7 +239,7 @@ def getArgs():
     parser.add_argument('--resume', type=bool, default=False, help="whether resume training")
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
     parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before optimizing')
-    parser.add_argument('--fp_16', type=bool, default=True, help='whither to use fp16 precision')
+    parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')
     args = parser.parse_args()
     return args
 

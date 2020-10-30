@@ -29,5 +29,5 @@ visualize_demo.py --config_file experiments/your_file.yaml
 ```
 
 # References:
-argusswift/YOLOv4-pytorch: https://github.com/argusswift/YOLOv4-pytorch
-AlexeyAB/darknet: https://github.com/AlexeyAB/darknet/
+- argusswift/YOLOv4-pytorch: https://github.com/argusswift/YOLOv4-pytorch
+- AlexeyAB/darknet: https://github.com/AlexeyAB/darknet
