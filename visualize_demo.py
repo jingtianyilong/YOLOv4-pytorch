@@ -46,18 +46,17 @@ class Detection(object):
         accum_time = 0
         for image_path in self.__file_list:
             frame = cv2.imread(image_path)
-            prev_time = timer()
+            # prev_time = timer()
             bboxes_prd = self.__evalter.get_bbox(frame)
-            curr_time = timer()
             if bboxes_prd.shape[0] != 0:
                 boxes = bboxes_prd[..., :4]
                 class_inds = bboxes_prd[..., 5].astype(np.int32)
                 scores = bboxes_prd[..., 4]
                 visualize_boxes(image=frame, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes)
-            accum_time +=  curr_time - prev_time
+            # curr_time = timer()
+            # accum_time +=  curr_time - prev_time
             cv2.imwrite(os.path.join(self.__output_dir,os.path.basename(image_path)),frame)
-            prev_time  = timer()
-        print("FPS: {:.04f}".format(len(self.__file_list)/accum_time))
+        print("FPS: {:.04f}".format(len(self.__file_list)/self.__evalter.inference_time))
         
     def get_first_10_imgs(self):
         fh = open(self.__label_path)
