@@ -35,6 +35,7 @@ class COCOAPIEvaluator():
         self.dataset = COCODataset(cfg)
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=False, pin_memory=True,num_workers=cfg.VAL.NUMBER_WORKERS)
+        self.class_num = cfg.DATASET.NUM
         self.img_size = img_size
         self.confthre = confthre # from darknet
         self.nmsthre = nmsthre # 0.45 (darknet)
@@ -68,7 +69,7 @@ class COCOAPIEvaluator():
                 _,outputs = model(img)
                 outputs=outputs.unsqueeze(0)
                 outputs = postprocess(
-                    outputs, 80, self.confthre, self.nmsthre)
+                    outputs, self.class_num, self.confthre, self.nmsthre)
                 if outputs[0] is None:
                     continue
                 outputs = outputs[0].cpu().data
@@ -81,7 +82,8 @@ class COCOAPIEvaluator():
                 label = self.dataset.class_ids[int(output[6])]
                 box = yolobox2label((y1, x1, y2, x2), info_img)
                 bbox = [box[1], box[0], box[3] - box[1], box[2] - box[0]]
-                score = float(output[4].data.item() * output[5].data.item()) # object score * class score
+                score = float(output[4].data.item()) * float(output[5].data.item()) # object score * class score
+
                 A = {"image_id": id_, "category_id": label, "bbox": bbox,
                      "score": score, "segmentation": []} # COCO json format
                 data_dict.append(A)

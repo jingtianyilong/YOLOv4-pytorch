@@ -11,8 +11,8 @@ class FocalLoss(nn.Module):
         super(FocalLoss, self).__init__()
         self.__gamma = gamma
         self.__alpha = alpha
-        # self.__loss = nn.BCEWithLogitsLoss(reduction=reduction)
-        self.__loss = nn.BCELoss(reduction=reduction)
+        self.__loss = nn.BCEWithLogitsLoss(reduction=reduction)
+        # self.__loss = nn.BCELoss(reduction=reduction)
 
     def forward(self, input, target):
         loss = self.__loss(input=input, target=target)
@@ -80,8 +80,8 @@ class YoloV4Loss(nn.Module):
 
         :return: The average loss(loss_giou, loss_conf, loss_cls) of all batches of this detection layer.
         """
-        # BCE = nn.BCEWithLogitsLoss(reduction="none")
-        BCE = nn.BCELoss(reduction="none")
+        BCE = nn.BCEWithLogitsLoss(reduction="none")
+        # BCE = nn.BCELoss(reduction="none")
 
         FOCAL = FocalLoss(gamma=2, alpha=1.0, reduction="none")
 

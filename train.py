@@ -18,7 +18,7 @@ from config import update_config
 from utils import cosine_lr_scheduler
 from utils.log import Logger
 from utils.utils import init_seed
-# from apex import amp
+from apex import amp
 from eval_coco import *
 from eval.cocoapi_evaluator import COCOAPIEvaluator
 
@@ -97,8 +97,8 @@ class Trainer(object):
         if self.best_mAP == mAP:
             torch.save(chkpt['model'], best_weight)
 
-        if epoch > 0 and epoch % 10 == 0:
-            torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
+        # if epoch > 0 and epoch % 10 == 0:
+        #     torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
         del chkpt
 
     def train(self):
@@ -109,7 +109,7 @@ class Trainer(object):
         n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
 
-        # if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
+        if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
 
         if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
         logger.info("\n===============  start  training   ===============")
@@ -132,11 +132,11 @@ class Trainer(object):
                     loss, loss_ciou, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
                                                     label_lbbox, sbboxes, mbboxes, lbboxes)
 
-                    # if self.fp_16:
-                    #     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    #         scaled_loss.backward()
-                    # else:
-                    loss.backward()
+                    if self.fp_16:
+                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
                     # Accumulate gradient for x batches before optimizing
                     if i % self.accumulate == 0:
                         self.scheduler.step(n_step*epoch + i)

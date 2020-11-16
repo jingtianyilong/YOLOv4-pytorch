@@ -4,6 +4,9 @@ import random
 import numpy as np
 import cv2
 
+def naive_sigmoid(x):
+    return 1.0/(1.0 + np.exp(-x)) 
+
 def init_seed(number=356):
     random.seed(number)
     torch.manual_seed(number)
@@ -85,12 +88,14 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
 
     """
     box_corner = prediction.new(prediction.shape)
+    
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
     box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
     box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2
     box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
-
+    # print(prediction.shape)
+    prediction[:,:,5:] = torch.sigmoid(prediction[:,:,5:])
     output = [None for _ in range(len(prediction))]
     for i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
