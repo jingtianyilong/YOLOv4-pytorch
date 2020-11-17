@@ -95,7 +95,7 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
     # print(prediction.shape)
-    prediction[:,:,5:] = torch.sigmoid(prediction[:,:,5:])
+    # prediction[:,:,5:] = torch.sigmoid(prediction[:,:,5:])
     output = [None for _ in range(len(prediction))]
     for i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold

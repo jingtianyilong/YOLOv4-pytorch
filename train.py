@@ -106,7 +106,8 @@ class Trainer(object):
         logger.info("Training start,img size is: {:d},batchsize is: {:d}, subdivision: {:d}, worker number is {:d}".format(cfg.TRAIN.TRAIN_IMG_SIZE, cfg.TRAIN.BATCH_SIZE, cfg.TRAIN.ACCUMULATE, cfg.TRAIN.NUMBER_WORKERS))
         logger.info(self.yolov4)
         n_train = len(self.train_dataset)
-        n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
+        n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE) + 1
+        n_remainder = n_train % (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
 
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
