@@ -55,12 +55,13 @@ class COCOAPIEvaluator():
         Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         ids = []
         data_dict = []
-        dataiterator = iter(self.dataloader)
-        while True: # all the data in val2017
-            try:
-                img, _, info_img, id_ = next(dataiterator)  # load a batch
-            except StopIteration:
-                break
+        # dataiterator = iter(self.dataloader)
+        # while True: # all the data in val2017
+        #     try:
+        #         img, _, info_img, id_ = next(dataiterator)  # load a batch
+        #     except StopIteration:
+        #         break
+        for img, _, info_img, id_ in enumerate(self.dataloader):
             info_img = [float(info) for info in info_img]
             id_ = int(id_)
             ids.append(id_)
