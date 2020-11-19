@@ -1,22 +1,23 @@
 MODEL:
- ANCHORS: [[[1.25, 2.625], [2.625, 5.875], [2.625, 10.0]], [[2.125, 5.5625], [3.5625, 8.5625], [3.75, 9.5625]], [[3.125, 7.0], [3.6875, 7.6875], [4.8125, 11.75]]]
+  ANCHORS: [[[1.25, 2.625], [2.625, 5.875], [2.625, 10.0]], [[2.125, 5.5625], [3.5625, 8.5625], [3.75, 9.5625]], [[3.125, 7.0], [3.6875, 7.6875], [4.8125, 11.75]]]
+
  
 TRAIN:
   ANNO_FILE: "cityscapes_train_no_empty.txt"
   DATA_TYPE: 'Customer'  #DATA_TYPE: VOC ,COCO or Customer
   TRAIN_IMG_SIZE: 608
   AUGMENT: True
-  BATCH_SIZE: 64
-  ACCUMULATE: 4
+  BATCH_SIZE: 16
+  ACCUMULATE: 1
   MULTI_SCALE_TRAIN: True
   IOU_THRESHOLD_LOSS: 0.5
-  YOLO_EPOCHS: 220
+  YOLO_EPOCHS: 350
   NUMBER_WORKERS: 16
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0005
-  LR_INIT: 4e-3
-  LR_END: 4e-5
-  WARMUP_EPOCHS: 20  # or None
+  LR_INIT: 5e-3
+  LR_END: 5e-5
+  WARMUP_EPOCHS: 15  # or None
 
 VAL:
   ANNO_FILE: "cityscapes_val_no_empty.txt"
@@ -40,3 +41,4 @@ DATASET:
     "Car",
     "Motorbike",
     "Truck"]
+
