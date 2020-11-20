@@ -126,7 +126,7 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
             
             # nms_in = detections_class.cpu().numpy()
             nms_out_index = torchvision.ops.nms(detections_class[...,:4],
-                                                   detections_class[...,4]*detections[...,5],
+                                                   detections_class[...,4]*detections_class[...,5],
                                                    iou_threshold=nms_thre)
             # nms_out_index = nms(
             #     nms_in[:, :4], nms_thre, score=nms_in[:, 4]*nms_in[:, 5])
