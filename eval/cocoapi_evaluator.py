@@ -61,7 +61,7 @@ class COCOAPIEvaluator():
         #         img, _, info_img, id_ = next(dataiterator)  # load a batch
         #     except StopIteration:
         #         break
-        for img, _, info_img, id_ in enumerate(self.dataloader):
+        for i,(img, _, info_img, id_) in enumerate(self.dataloader):
             info_img = [float(info) for info in info_img]
             id_ = int(id_)
             ids.append(id_)
