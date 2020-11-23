@@ -4,6 +4,57 @@ import random
 import numpy as np
 import pdb
 
+def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
+                    left_shift, right_shift, top_shift, bot_shift):
+    left_shift = min(left_shift, w - cut_x)
+    top_shift = min(top_shift, h - cut_y)
+    right_shift = min(right_shift, cut_x)
+    bot_shift = min(bot_shift, cut_y)
+
+    if i_mixup == 0:
+        bboxes = filter_truth(bboxes, left_shift, top_shift, cut_x, cut_y, 0, 0)
+        out_img[:cut_y, :cut_x] = img[top_shift:top_shift + cut_y, left_shift:left_shift + cut_x]
+    if i_mixup == 1:
+        bboxes = filter_truth(bboxes, cut_x - right_shift, top_shift, w - cut_x, cut_y, cut_x, 0)
+        out_img[:cut_y, cut_x:] = img[top_shift:top_shift + cut_y, cut_x - right_shift:w - right_shift]
+    if i_mixup == 2:
+        bboxes = filter_truth(bboxes, left_shift, cut_y - bot_shift, cut_x, h - cut_y, 0, cut_y)
+        out_img[cut_y:, :cut_x] = img[cut_y - bot_shift:h - bot_shift, left_shift:left_shift + cut_x]
+    if i_mixup == 3:
+        bboxes = filter_truth(bboxes, cut_x - right_shift, cut_y - bot_shift, w - cut_x, h - cut_y, cut_x, cut_y)
+        out_img[cut_y:, cut_x:] = img[cut_y - bot_shift:h - bot_shift, cut_x - right_shift:w - right_shift]
+    return out_img, bboxes
+
+def filter_truth(bboxes, dx, dy, sx, sy, xd, yd):
+    if bboxes != []:
+        bboxes[:, 0] -= dx
+        bboxes[:, 2] -= dx
+        bboxes[:, 1] -= dy
+        bboxes[:, 3] -= dy
+
+        bboxes[:, 0] = np.clip(bboxes[:, 0], 0, sx)
+        bboxes[:, 2] = np.clip(bboxes[:, 2], 0, sx)
+
+        bboxes[:, 1] = np.clip(bboxes[:, 1], 0, sy)
+        bboxes[:, 3] = np.clip(bboxes[:, 3], 0, sy)
+
+        out_box = list(np.where(((bboxes[:, 1] == sy) & (bboxes[:, 3] == sy)) |
+                                ((bboxes[:, 0] == sx) & (bboxes[:, 2] == sx)) |
+                                ((bboxes[:, 1] == 0) & (bboxes[:, 3] == 0)) |
+                                ((bboxes[:, 0] == 0) & (bboxes[:, 2] == 0)))[0])
+        list_box = list(range(bboxes.shape[0]))
+        for i in out_box:
+            list_box.remove(i)
+        bboxes = bboxes[list_box]
+
+        bboxes[:, 0] += xd
+        bboxes[:, 2] += xd
+        bboxes[:, 1] += yd
+        bboxes[:, 3] += yd
+        return bboxes
+    else:
+        return bboxes
+
 class RandomHorizontalFilp(object):
     def __init__(self, p=0.5):
         self.p = p
@@ -125,7 +176,13 @@ class Mixup(object):
             
         return img, bboxes
 
+class Mosaic(object):
+    def __init__(self,p=0.5):
+        self.p = p
+    def __call__(self,self, img_org, bboxes_org,m_img_1, m_bboxex_1,m_img_2, m_bboxes_2,m_img_3, m_bboxes_3):
+        return 
 
+        
 class LabelSmooth(object):
     def __init__(self, delta=0.01):
         self.delta = delta
