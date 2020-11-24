@@ -84,16 +84,13 @@ class Build_Train_Dataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-        
+        img = dataAug.hsv_aug(img, 0.1, 0.5, 0.5)
+
         img, bboxes = self.random_flip(np.copy(img), np.copy(bboxes), img_path)
         img, bboxes = self.random_crop(np.copy(img), np.copy(bboxes))
         img, bboxes = self.random_affine(np.copy(img), np.copy(bboxes))
         img, bboxes = self.resize(np.copy(img), np.copy(bboxes))
       
-        img = transforms.functional.adjust_brightness(img, random.uniform(0.5, 1.5))
-        img = transforms.functional.adjust_hue(img, random.uniform(0.5, 1.5))
-        img = transforms.functional.adjust_saturation(img, random.uniform(0.9, 1.1))
-
         return img, bboxes
 
     def __creat_label(self, bboxes):
@@ -192,54 +189,54 @@ class Build_Train_Dataset(Dataset):
         
         return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
-# class Build_VAL_Dataset(Dataset):
-#     def __init__(self, cfg):
-#         super().__init__()
-#         self.cfg = cfg
-#         truth = {}
-#         f = open(os.path.join(cfg.DATA_PATH, cfg.VAL.ANNO_FILE), 'r', encoding='utf-8')
-#         for line in f.readlines():
-#             data = line.rstrip().split(" ")
-#             truth[data[0]] = []
-#             if len(data) > 1:
-#                 for i in data[1:]:
-#                     truth[data[0]].append([int(float(j)) for j in i.split(',')])
+class Build_VAL_Dataset(Dataset):
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+        truth = {}
+        f = open(os.path.join(cfg.DATA_PATH, cfg.VAL.ANNO_FILE), 'r', encoding='utf-8')
+        for line in f.readlines():
+            data = line.rstrip().split(" ")
+            truth[data[0]] = []
+            if len(data) > 1:
+                for i in data[1:]:
+                    truth[data[0]].append([int(float(j)) for j in i.split(',')])
 
-#         self.truth = truth
-#         self.imgs = list(self.truth.keys())
+        self.truth = truth
+        self.imgs = list(self.truth.keys())
         
-#     def get_image_id(filename):
-#         return int(os.path.basename(filename).split(".")[0])
+    def get_image_id(filename):
+        return int(os.path.basename(filename).split(".")[0])
     
-#     def __len__(self):
-#         return len(self.truth.keys())
+    def __len__(self):
+        return len(self.truth.keys())
     
-#     def __getitem__(self, index):
-#         img_path = self.imgs[index]
-#         bboxes_with_cls_id = np.array(self.truth.get(img_path), dtype=np.float)
+    def __getitem__(self, index):
+        img_path = self.imgs[index]
+        bboxes_with_cls_id = np.array(self.truth.get(img_path), dtype=np.float)
         
-#         img = cv2.imread(os.path.join(cfg.DATA_PATH, img_path))
-#         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.imread(os.path.join(cfg.DATA_PATH, img_path))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-#         num_objs = len(bboxes_with_cls_id)
-#         target = {}
-#         # boxes to coco format
-#         if num_objs > 0:
-#             boxes = bboxes_with_cls_id[...,:4]
-#             boxes[..., 2:] = boxes[..., 2:] - boxes[..., :2]  # box width, box height
-#             target['boxes'] = torch.as_tensor(boxes, dtype=torch.float32)
-#             target['labels'] = torch.as_tensor(bboxes_with_cls_id[...,-1].flatten(), dtype=torch.int64)
-#             target['image_id'] = torch.tensor([get_image_id(img_path)])
-#             target['area'] = (target['boxes'][:,3])*(target['boxes'][:,2])
-#             target['iscrowd'] = torch.zeros((num_objs,), dtype=torch.int64)
-#         else:
-#             target['boxes'] = torch.as_tensor([], dtype=torch.float32)
-#             target['labels'] = torch.as_tensor([], dtype=torch.int64)
-#             target['image_id'] = torch.tensor([get_image_id(img_path)])
-#             target['area'] = torch.as_tensor([], dtype=torch.float32)
-#             target['iscrowd'] = torch.as_tensor([], dtype=torch.int64)
+        num_objs = len(bboxes_with_cls_id)
+        target = {}
+        # boxes to coco format
+        if num_objs > 0:
+            boxes = bboxes_with_cls_id[...,:4]
+            boxes[..., 2:] = boxes[..., 2:] - boxes[..., :2]  # box width, box height
+            target['boxes'] = torch.as_tensor(boxes, dtype=torch.float32)
+            target['labels'] = torch.as_tensor(bboxes_with_cls_id[...,-1].flatten(), dtype=torch.int64)
+            target['image_id'] = torch.tensor([get_image_id(img_path)])
+            target['area'] = (target['boxes'][:,3])*(target['boxes'][:,2])
+            target['iscrowd'] = torch.zeros((num_objs,), dtype=torch.int64)
+        else:
+            target['boxes'] = torch.as_tensor([], dtype=torch.float32)
+            target['labels'] = torch.as_tensor([], dtype=torch.int64)
+            target['image_id'] = torch.tensor([get_image_id(img_path)])
+            target['area'] = torch.as_tensor([], dtype=torch.float32)
+            target['iscrowd'] = torch.as_tensor([], dtype=torch.int64)
             
-#         return img, target
+        return img, target
 
 if __name__ == "__main__":
 

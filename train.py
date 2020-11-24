@@ -109,10 +109,7 @@ class Trainer(object):
         n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE) + 1
         n_remainder = n_train % (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
-        evaluator = COCOAPIEvaluator(cfg=cfg,
-                                img_size=cfg.VAL.TEST_IMG_SIZE,
-                                confthre=cfg.VAL.CONF_THRESH,
-                                nmsthre=cfg.VAL.NMS_THRESH)
+
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
 
         if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
@@ -169,6 +166,10 @@ class Trainer(object):
                     pbar.update(imgs.shape[0])
                 
             mAP = 0.
+            evaluator = COCOAPIEvaluator(cfg=cfg,
+                        img_size=cfg.VAL.TEST_IMG_SIZE,
+                        confthre=cfg.VAL.CONF_THRESH,
+                        nmsthre=cfg.VAL.NMS_THRESH)
             coco_stat = evaluator.evaluate(self.yolov4)
             logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[0]))
             logger.info("Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[1]))            

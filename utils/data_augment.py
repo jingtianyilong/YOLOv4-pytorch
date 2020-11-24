@@ -4,6 +4,14 @@ import random
 import numpy as np
 import pdb
 
+def hsv_aug(img, hue_jitter, bright_jitter, sat_jitter):
+    hsv_img = cv2.cvtColor(img,cv2.COLOR_BGR2HSV).astype(np.float32)
+    hsv_img[:,:,0] *= random.uniform(1-hue_jitter, 1+hue_jitter)
+    hsv_img[:,:,1] *= random.uniform(1-sat_jitter, 1+sat_jitter)
+    hsv_img[:,:,2] *= random.uniform(1-bright_jitter, 1+bright_jitter)
+    ret_img = cv2.cvtColor(np.uint8(hsv_img),cv2.COLOR_HSV2BGR)
+    return np.clip(ret_img,0,255)
+
 def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
                     left_shift, right_shift, top_shift, bot_shift):
     left_shift = min(left_shift, w - cut_x)
@@ -179,7 +187,7 @@ class Mixup(object):
 class Mosaic(object):
     def __init__(self,p=0.5):
         self.p = p
-    def __call__(self,self, img_org, bboxes_org,m_img_1, m_bboxex_1,m_img_2, m_bboxes_2,m_img_3, m_bboxes_3):
+    def __call__(self, img_org, bboxes_org,m_img_1, m_bboxex_1,m_img_2, m_bboxes_2,m_img_3, m_bboxes_3):
         return 
 
         
