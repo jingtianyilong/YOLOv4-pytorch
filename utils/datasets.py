@@ -31,8 +31,10 @@ class Build_Train_Dataset(Dataset):
         self.random_crop = dataAug.RandomCrop()
         self.random_flip = dataAug.RandomHorizontalFilp()
         self.random_affine = dataAug.RandomAffine()
-        self.resize = dataAug.Resize((self.img_size, self.img_size), True)
-
+        self.random_hsv = dataAug.RandomHSVAug(0.1, 0.5, 0.5)
+        self.resize = dataAug.Resize(True)
+        self.random_mixup = dataAug.Mixup()
+        self.label_smooth = dataAug.LabelSmooth()
     def __len__(self):
         return  len(self.__annotations)
 
@@ -45,7 +47,7 @@ class Build_Train_Dataset(Dataset):
         img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
         img_mix = img_mix.transpose(2, 0, 1)
 
-        img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
+        img, bboxes = self.random_mixup(img_org, bboxes_org, img_mix, bboxes_mix)
         del img_org, bboxes_org, img_mix, bboxes_mix
 
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
@@ -84,12 +86,13 @@ class Build_Train_Dataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-        img = dataAug.hsv_aug(img, 0.1, 0.5, 0.5)
+        
 
-        img, bboxes = self.random_flip(np.copy(img), np.copy(bboxes), img_path)
+        img, bboxes = self.random_flip(np.copy(img), np.copy(bboxes))
         img, bboxes = self.random_crop(np.copy(img), np.copy(bboxes))
         img, bboxes = self.random_affine(np.copy(img), np.copy(bboxes))
-        img, bboxes = self.resize(np.copy(img), np.copy(bboxes))
+        img         = self.random_hsv(np.copy(img))
+        img, bboxes = self.resize(np.copy(img), np.copy(bboxes),(self.img_size, self.img_size))
       
         return img, bboxes
 
@@ -121,7 +124,7 @@ class Build_Train_Dataset(Dataset):
         for i in range(3):
             label[i][..., 5] = 1.0
 
-        bboxes_xywh = [np.zeros((150, 4)) for _ in range(3)]   # Darknet the max_num is 30
+        bboxes_xywh = [np.zeros((90, 4)) for _ in range(3)]   # Darknet the max_num is 30
         bbox_count = np.zeros((3,))
 
         for bbox in bboxes:
@@ -132,7 +135,7 @@ class Build_Train_Dataset(Dataset):
             # onehot
             one_hot = np.zeros(self.num_classes, dtype=np.float32)
             one_hot[bbox_class_ind] = 1.0
-            one_hot_smooth = dataAug.LabelSmooth()(one_hot, self.num_classes)
+            one_hot_smooth = self.label_smooth(one_hot, self.num_classes)
 
             # convert "xyxy" to "xywh"
             bbox_xywh = np.concatenate([(bbox_coor[2:] + bbox_coor[:2]) * 0.5,
@@ -161,7 +164,7 @@ class Build_Train_Dataset(Dataset):
                     label[i][yind, xind, iou_mask, 5:6] = bbox_mix
                     label[i][yind, xind, iou_mask, 6:] = one_hot_smooth
 
-                    bbox_ind = int(bbox_count[i] % 150)  # BUG : 150为一个先验值,内存消耗大
+                    bbox_ind = int(bbox_count[i] % 90)  # BUG : 90为一个先验值,内存消耗大
                     bboxes_xywh[i][bbox_ind, :4] = bbox_xywh
                     bbox_count[i] += 1
 
@@ -169,17 +172,16 @@ class Build_Train_Dataset(Dataset):
 
             if not exist_positive:
                 best_anchor_ind = np.argmax(np.array(iou).reshape(-1), axis=-1)
-                best_detect = int(best_anchor_ind / anchors_per_scale)
-                best_anchor = int(best_anchor_ind % anchors_per_scale)
+                best_detect = best_anchor_ind // anchors_per_scale
+                best_anchor = best_anchor_ind % anchors_per_scale
 
                 xind, yind = np.floor(bbox_xywh_scaled[best_detect, 0:2]).astype(np.int32)
-
                 label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
                 label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
                 label[best_detect][yind, xind, best_anchor, 5:6] = bbox_mix
                 label[best_detect][yind, xind, best_anchor, 6:] = one_hot_smooth
 
-                bbox_ind = int(bbox_count[best_detect] % 150)
+                bbox_ind = int(bbox_count[best_detect] % 90)
                 bboxes_xywh[best_detect][bbox_ind, :4] = bbox_xywh
                 bbox_count[best_detect] += 1
 
