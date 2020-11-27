@@ -31,3 +31,4 @@ visualize_demo.py --config_file experiments/your_file.yaml
 # References:
 - argusswift/YOLOv4-pytorch: https://github.com/argusswift/YOLOv4-pytorch
 - AlexeyAB/darknet: https://github.com/AlexeyAB/darknet
+- VCasecnikovs/Yet-Another-YOLOv4-Pytorch: https://github.com/VCasecnikovs/Yet-Another-YOLOv4-Pytorch
