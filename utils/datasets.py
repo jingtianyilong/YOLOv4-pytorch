@@ -31,10 +31,11 @@ class Build_Train_Dataset(Dataset):
         self.random_crop = dataAug.RandomCrop()
         self.random_flip = dataAug.RandomHorizontalFilp()
         self.random_affine = dataAug.RandomAffine()
-        self.random_hsv = dataAug.RandomHSVAug(0.1, 0.5, 0.5)
+        self.random_hsv = dataAug.RandomHSVAug(hue_jitter=0.05, bright_jitter=0.25, sat_jitter=0.25)
         self.resize = dataAug.Resize(True)
         self.random_mixup = dataAug.Mixup()
         self.label_smooth = dataAug.LabelSmooth()
+        self.moasaic = dataAug.Mosaic(cross_offset=0.2)
     def __len__(self):
         return  len(self.__annotations)
 
@@ -88,11 +89,13 @@ class Build_Train_Dataset(Dataset):
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
         
 
+
+        img, bboxes = self.resize(np.copy(img), np.copy(bboxes),(self.img_size, self.img_size))
         img, bboxes = self.random_flip(np.copy(img), np.copy(bboxes))
         img, bboxes = self.random_crop(np.copy(img), np.copy(bboxes))
         img, bboxes = self.random_affine(np.copy(img), np.copy(bboxes))
         img         = self.random_hsv(np.copy(img))
-        img, bboxes = self.resize(np.copy(img), np.copy(bboxes),(self.img_size, self.img_size))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
       
         return img, bboxes
 
