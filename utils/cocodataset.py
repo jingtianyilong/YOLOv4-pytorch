@@ -121,13 +121,13 @@ class COCODataset(Dataset):
             labels = targets['labels'].tolist()
             areas = targets['area'].tolist()
             iscrowd = targets['iscrowd'].tolist()
-            if 'masks' in targets:
-                masks = targets['masks']
-                # make masks Fortran contiguous for coco_mask
-                masks = masks.permute(0, 2, 1).contiguous().permute(0, 2, 1)
-            if 'keypoints' in targets:
-                keypoints = targets['keypoints']
-                keypoints = keypoints.reshape(keypoints.shape[0], -1).tolist()
+            # if 'masks' in targets:
+            #     masks = targets['masks']
+            #     # make masks Fortran contiguous for coco_mask
+            #     masks = masks.permute(0, 2, 1).contiguous().permute(0, 2, 1)
+            # if 'keypoints' in targets:
+            #     keypoints = targets['keypoints']
+            #     keypoints = keypoints.reshape(keypoints.shape[0], -1).tolist()
             num_objs = len(bboxes)
             for i in range(num_objs):
                 ann = {}
@@ -138,11 +138,11 @@ class COCODataset(Dataset):
                 ann['area'] = areas[i]
                 ann['iscrowd'] = iscrowd[i]
                 ann['id'] = ann_id
-                if 'masks' in targets:
-                    ann["segmentation"] = coco_mask.encode(masks[i].numpy())
-                if 'keypoints' in targets:
-                    ann['keypoints'] = keypoints[i]
-                    ann['num_keypoints'] = sum(k != 0 for k in keypoints[i][2::3])
+                # if 'masks' in targets:
+                #     ann["segmentation"] = coco_mask.encode(masks[i].numpy())
+                # if 'keypoints' in targets:
+                #     ann['keypoints'] = keypoints[i]
+                #     ann['num_keypoints'] = sum(k != 0 for k in keypoints[i][2::3])
                 dataset['annotations'].append(ann)
                 ann_id += 1
         dataset['categories'] = [{'id': i} for i in sorted(categories)]

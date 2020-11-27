@@ -1,6 +1,7 @@
 import json
 import tempfile
 import torch
+from tqdm import tqdm
 from pycocotools.cocoeval import COCOeval
 import pycocotools.mask as mask_util
 from collections import defaultdict
@@ -55,12 +56,8 @@ class COCOAPIEvaluator():
         Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         ids = []
         data_dict = []
-        dataiterator = iter(self.dataloader)
-        while True: # all the data in val2017
-            try:
-                img, _, info_img, id_ = next(dataiterator)  # load a batch
-            except StopIteration:
-                break
+
+        for i,(img, _, info_img, id_) in tqdm(enumerate(self.dataloader),desc="Val batch: ", unit="imgs", total=len(self.dataloader)):
             info_img = [float(info) for info in info_img]
             id_ = int(id_)
             ids.append(id_)

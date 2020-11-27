@@ -17,7 +17,7 @@ TRAIN:
   WEIGHT_DECAY: 0.0005
   LR_INIT: 5e-3
   LR_END: 5e-5
-  WARMUP_EPOCHS: 15  # or None
+  WARMUP_EPOCHS: 20  # or None
 
 VAL:
   ANNO_FILE: "cityscapes_val_no_empty.txt"

@@ -41,10 +41,10 @@ class Yolo_head(nn.Module):
         pred_xy = (torch.sigmoid(conv_raw_dxdy) + grid_xy) * stride
         pred_wh = (torch.exp(conv_raw_dwdh) * anchors) * stride
         pred_xywh = torch.cat([pred_xy, pred_wh], dim=-1)
-        # pred_conf = torch.sigmoid(conv_raw_conf)
-        # pred_prob = torch.sigmoid(conv_raw_prob)
-        # pred_bbox = torch.cat([pred_xywh, pred_conf, pred_prob], dim=-1)
-        pred_bbox = torch.cat([pred_xywh, conv_raw_conf, conv_raw_prob], dim=-1)
+        pred_conf = torch.sigmoid(conv_raw_conf)
+        pred_prob = torch.sigmoid(conv_raw_prob)
+        pred_bbox = torch.cat([pred_xywh, pred_conf, pred_prob], dim=-1)
+        # pred_bbox = torch.cat([pred_xywh, conv_raw_conf, conv_raw_prob], dim=-1)
 
 
         return pred_bbox.view(-1, 5 + self.__nC) if not self.training else pred_bbox

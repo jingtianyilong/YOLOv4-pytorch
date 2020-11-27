@@ -1,5 +1,6 @@
 from __future__ import division
 import torch
+import torchvision
 import random
 import numpy as np
 import cv2
@@ -95,7 +96,7 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
     # print(prediction.shape)
-    prediction[:,:,5:] = torch.sigmoid(prediction[:,:,5:])
+    # prediction[:,:,5:] = torch.sigmoid(prediction[:,:,5:])
     output = [None for _ in range(len(prediction))]
     for i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
@@ -122,9 +123,13 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         for c in unique_labels:
             # Get the detections with the particular class
             detections_class = detections[detections[:, -1] == c]
-            nms_in = detections_class.cpu().numpy()
-            nms_out_index = nms(
-                nms_in[:, :4], nms_thre, score=nms_in[:, 4]*nms_in[:, 5])
+            
+            # nms_in = detections_class.cpu().numpy()
+            nms_out_index = torchvision.ops.nms(detections_class[...,:4],
+                                                   detections_class[...,4]*detections_class[...,5],
+                                                   iou_threshold=nms_thre)
+            # nms_out_index = nms(
+            #     nms_in[:, :4], nms_thre, score=nms_in[:, 4]*nms_in[:, 5])
             detections_class = detections_class[nms_out_index]
             if output[i] is None:
                 output[i] = detections_class
