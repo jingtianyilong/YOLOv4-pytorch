@@ -10,6 +10,7 @@ import utils.datasets as data
 import time
 import random
 import argparse
+import shutil
 from eval.evaluator import *
 from utils.tools import *
 from torch.utils.tensorboard import SummaryWriter
@@ -76,22 +77,23 @@ class Trainer(object):
     def __prepare_fine_tune(self):
         cfg.defrost()
         cfg.TRAIN.ANNO_FILE = cfg.FINE_TUNE.ANNO_FILE
-        cfg.TRAIN.YOLO_EPOCHS = cfg.FINE_TUNE.YOLO_EPOCHS
+        cfg.TRAIN.YOLO_EPOCHS = cfg.FINE_TUNE.YOLO_EPOCHS + cfg.TRAIN.YOLO_EPOCHS
         cfg.TRAIN.LR_INIT = cfg.FINE_TUNE.LR_INIT
         cfg.TRAIN.LR_END = cfg.FINE_TUNE.LR_END
-        cfg.TRAIN.WARMUP_EPOCHS = cfg.FINE_TUNE.WARMUP_EPOCHS
+        cfg.TRAIN.WARMUP_EPOCHS = cfg.FINE_TUNE.WARMUP_EPOCHS + cfg.TRAIN.YOLO_EPOCHS
         cfg.freeze()
         
     def __load_best_weights(self):
         best_weight = os.path.join(log_dir,"checkpoints", "best.pt")
+        last_weight = os.path.join(log_dir,"checkpoints", "last.pt")    
         shutil.copy2(best_weight,
                      best_weight.replace("best.pt","best_before_fine_tune.pt"))
-        chkpt = torch.load(best_weight, map_location=self.device)
-        self.yolov4.load_state_dict(chkpt['model'])
-
-        self.start_epoch = chkpt['epoch'] + 1
-        self.best_mAP = chkpt['best_mAP']
-        del chkpt
+        last_chkpt = torch.load(last_weight, map_location=self.device)
+        best_chkpt = torch.load(best_weight, map_location=self.device)
+        self.yolov4.load_state_dict(best_chkpt)
+        self.start_epoch = last_chkpt['epoch'] + 1
+        self.best_mAP = last_chkpt['best_mAP']
+        del last_chkpt, best_chkpt
 
         
     def __load_resume_weights(self):
@@ -282,4 +284,4 @@ if __name__ == "__main__":
     logger = init_logger(log_dir=log_dir)
     logger.debug(cfg)
 
-    Trainer(log_dir,resume= args.resume).train()
+    Trainer(log_dir,resume=args.resume, fine_tune=args.fine_tune).train()
