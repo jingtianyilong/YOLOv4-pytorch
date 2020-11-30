@@ -33,8 +33,9 @@ def detection_collate(batch):
 
 
 class Trainer(object):
-    def __init__(self, log_dir, resume=False):
+    def __init__(self, log_dir, resume=False, fine_tune=False):
         init_seeds(0)
+        self.__prepare_fine_tune()
         self.fp_16 = cfg.FP16
         self.device = gpu.select_device()
         self.start_epoch = 0
@@ -70,7 +71,29 @@ class Trainer(object):
                                                           lr_min=cfg.TRAIN.LR_END,
                                                           warmup=cfg.TRAIN.WARMUP_EPOCHS*len(self.train_dataloader))
         if resume: self.__load_resume_weights()
+        if fine_tune: self.__load_best_weights()
+        
+    def __prepare_fine_tune(self):
+        cfg.defrost()
+        cfg.TRAIN.ANNO_FILE = cfg.FINE_TUNE.ANNO_FILE
+        cfg.TRAIN.YOLO_EPOCHS = cfg.FINE_TUNE.YOLO_EPOCHS
+        cfg.TRAIN.LR_INIT = cfg.FINE_TUNE.LR_INIT
+        cfg.TRAIN.LR_END = cfg.FINE_TUNE.LR_END
+        cfg.TRAIN.WARMUP_EPOCHS = cfg.FINE_TUNE.WARMUP_EPOCHS
+        cfg.freeze()
+        
+    def __load_best_weights(self):
+        best_weight = os.path.join(log_dir,"checkpoints", "best.pt")
+        shutil.copy2(best_weight,
+                     best_weight.replace("best.pt","best_before_fine_tune.pt"))
+        chkpt = torch.load(best_weight, map_location=self.device)
+        self.yolov4.load_state_dict(chkpt['model'])
 
+        self.start_epoch = chkpt['epoch'] + 1
+        self.best_mAP = chkpt['best_mAP']
+        del chkpt
+
+        
     def __load_resume_weights(self):
 
         last_weight = os.path.join(log_dir,"checkpoints", "last.pt")
@@ -240,6 +263,7 @@ def getArgs():
     parser.add_argument('--config_file', type=str, default="experiment/demo.yaml", help="yaml configuration file")
     parser.add_argument('--accumulate', type=int, default=2, help='batches to accumulate before optimizing')
     parser.add_argument('--fp_16', type=bool, default=False, help='whither to use fp16 precision')
+    parser.add_argument('--fine_tune', type=bool, default=False, help='whither fine tune')
     args = parser.parse_args()
     return args
 
