@@ -157,7 +157,7 @@ class Resize(object):
         dw = int((w_target - resize_w) / 2)
         dh = int((h_target - resize_h) / 2)
         image_paded[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
-        image = image_paded / 255.0  # normalize to [0, 1]
+        # image = image_paded / 255.0  # normalize to [0, 1]
 
         if self.correct_box:
             bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw

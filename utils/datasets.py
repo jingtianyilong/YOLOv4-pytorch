@@ -25,6 +25,7 @@ class Build_Train_Dataset(Dataset):
             self.classes = cfg.COCO_DATA.CLASSES
         else:
             self.classes = cfg.DATASET.CLASSES
+        self.cross_offset = 0.2
         self.num_classes = len(self.classes)
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         self.__annotations = self.__load_annotations(anno_file, anno_file_type)
@@ -36,20 +37,69 @@ class Build_Train_Dataset(Dataset):
         self.random_mixup = dataAug.Mixup()
         self.label_smooth = dataAug.LabelSmooth()
         self.moasaic = dataAug.Mosaic(cross_offset=0.2)
+        
     def __len__(self):
         return  len(self.__annotations)
 
+    def __get_frag(self, mosaic_nr, cx, cy, img, bboxes):
+        h, w, _ = img.shape
+        if mosaic_nr == 0:
+            width_of_nth_pic = cx 
+            height_of_nth_pic = cy
+        elif mosaic_nr == 1:
+            width_of_nth_pic = self.img_size - cx
+            height_of_nth_pic = cy
+        elif mosaic_nr == 2:
+            width_of_nth_pic = cx
+            height_of_nth_pic = self.img_size - cy
+        elif mosaic_nr == 3:
+            width_of_nth_pic = self.img_size - cx
+            height_of_nth_pic = self.img_size - cy
+            
+        # top left corner
+        cut_x1 = random.randint(0, int(w * 0.33))
+        cut_y1 = random.randint(0, int(h * 0.33))
+          
+        # Now we should find which axis should we randomly enlarge (this we do by finding out which ratio is bigger); cross x is basically width of the top left picture        
+        if (w - cut_x1) / width_of_nth_pic < (h - cut_y1) / height_of_nth_pic:
+            cut_x2 = random.randint(cut_x1 + int(w * 0.67), w)
+            cut_y2 = int(cut_y1 + (cut_x2-cut_x1)/width_of_nth_pic*height_of_nth_pic)
+        else:
+            cut_y2 = random.randint(cut_y1 + int(h * 0.67), h)
+            cut_x2 = int(cut_x1 + (cut_y2-cut_y1)/height_of_nth_pic*width_of_nth_pic)            
+        
+        img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(height_of_nth_pic, width_of_nth_pic))
+        
+        
+        
+        
+    def __get_mosaic(self,idx):
+        
+        mosaic_img = np.zeros((self.img_size,self.img_size,3))
+        
+        cross_x = int(random.uniform(self.img_size * self.cross_offset, self.img_size * (1 - self.cross_offset)))
+        cross_y = int(random.uniform(self.img_size * self.cross_offset, self.img_size * (1 - self.cross_offset)))
+        
+        raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[idx])
+        frag_img, frag_bboxes = self.__get_frag(0, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
+        for i in range(1, 4):
+            frag_idx = random.randint(0, len(self.__annotations)-1)
+            raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[frag_idx])
+            frag_img, frag_bboxes = self.__get_frag(i, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
+            if n==1:
+                mosaic_img[0:cross_y, cross_x:, :] = frag_img
+            elif n==2:
+                mosaic_img[cross_y:, 0:cross_x, :] = frag_img
+            elif n==3:
+                mosaic_img[cross_y:, cross_x:, :] = frag_img
+            
+        return img, bboxes
+    
     def __getitem__(self, item):
         assert item <= len(self), 'index range error'
 
-        img_org, bboxes_org = self.__parse_annotation(self.__annotations[item])
-        img_org = img_org.transpose(2, 0, 1)  # HWC->CHW
-        item_mix = random.randint(0, len(self.__annotations)-1)
-        img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
-        img_mix = img_mix.transpose(2, 0, 1)
-
-        img, bboxes = self.random_mixup(img_org, bboxes_org, img_mix, bboxes_mix)
-        del img_org, bboxes_org, img_mix, bboxes_mix
+        img, bboxes = self.__get_mosaic(item)
+        img = img.transpose(2, 0, 1)  # HWC->CHW 
 
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
 
