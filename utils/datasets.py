@@ -70,6 +70,56 @@ class Build_Train_Dataset(Dataset):
         
         img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(height_of_nth_pic, width_of_nth_pic))
         
+        relative_cut_x1 = cut_x1 / w
+        relative_cut_y1 = cut_y1 / h
+        w_ratio = w / (cut_x2 - cut_x1) 
+        h_ratio = h / (cut_y2 - cut_y1) / h
+
+        # SHIFTING TO CUTTED IMG SO X1 Y1 WILL 0
+        bboxes[:, 0] = bboxes[:, 0] - cut_x1
+        bboxes[:, 1] = bboxes[:, 1] - cut_y1
+        bboxes[:, 2] = bboxes[:, 2] - cut_x1
+        bboxes[:, 3] = bboxes[:, 3] - cut_y1
+
+        # RESIZING TO CUTTED IMG SO X2 WILL BE 1
+        bboxes[:, 0] *= w_ratio
+        bboxes[:, 1] *= h_ratio
+        bboxes[:, 2] *= w_ratio
+        bboxes[:, 3] *= h_ratio
+
+        # CLAMPING BOUNDING BOXES, SO THEY DO NOT OVERCOME OUTSIDE THE IMAGE
+        bboxes[:, 0].clip(0, width_of_nth_pic)
+        bboxes[:, 1].clip(0, height_of_nth_pic)
+        bboxes[:, 2].clip(0, width_of_nth_pic)
+        bboxes[:, 3].clip(0, height_of_nth_pic)
+
+        # RESIZING TO MOSAIC
+        if n == 0:
+            bboxes[:, 0] = bboxes[:, 0] 
+            bboxes[:, 1] = bboxes[:, 1] 
+            bboxes[:, 2] = bboxes[:, 2] 
+            bboxes[:, 3] = bboxes[:, 3] 
+        elif n==1:
+            bboxes[:, 0] = bboxes[:, 0] + cross_x
+            bboxes[:, 1] = bboxes[:, 1]
+            bboxes[:, 2] = bboxes[:, 2] + cross_x
+            bboxes[:, 3] = bboxes[:, 3]
+        elif n==2:
+            bboxes[:, 0] = bboxes[:, 0]
+            bboxes[:, 1] = bboxes[:, 1] + cross_y
+            bboxes[:, 2] = bboxes[:, 2]
+            bboxes[:, 3] = bboxes[:, 3] + cross_y
+        elif n==3:
+            bboxes[:, 0] = bboxes[:, 0] + cross_x
+            bboxes[:, 1] = bboxes[:, 1] + cross_y
+            bboxes[:, 2] = bboxes[:, 2] + cross_x
+            bboxes[:, 3] = bboxes[:, 3] + cross_y
+
+        # FILTER TO THROUGH OUT ALL SMALL BBOXES
+        filter_minbbox = (bboxes[:, 2] - bboxes[:, 0] > self.bbox_minsize) & (bboxes[:, 3] - bboxes[:, 1] > self.bbox_minsize)
+        boxes = boxes[filter_minbbox]
+
+        return img, boxes        
         
         
         
@@ -138,13 +188,11 @@ class Build_Train_Dataset(Dataset):
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
         
-
-
-        img, bboxes = self.resize(np.copy(img), np.copy(bboxes),(self.img_size, self.img_size))
-        img, bboxes = self.random_flip(np.copy(img), np.copy(bboxes))
-        img, bboxes = self.random_crop(np.copy(img), np.copy(bboxes))
-        img, bboxes = self.random_affine(np.copy(img), np.copy(bboxes))
-        img         = self.random_hsv(np.copy(img))
+        img, bboxes = self.resize(img, bboxes,(self.img_size, self.img_size))
+        img, bboxes = self.random_flip(img, bboxes)
+        img, bboxes = self.random_crop(img, bboxes)
+        img, bboxes = self.random_affine(img, bboxes)
+        img         = self.random_hsv(img)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
       
         return img, bboxes
