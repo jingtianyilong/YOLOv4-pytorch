@@ -242,6 +242,7 @@ class Build_Train_Dataset(Dataset):
 
             bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
             bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
+        bboxes.clip(0,self.img_size)
             
         img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
         return img/255.0 , bboxes
