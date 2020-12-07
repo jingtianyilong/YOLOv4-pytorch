@@ -29,14 +29,11 @@ class Build_Train_Dataset(Dataset):
         self.num_classes = len(self.classes)
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         self.__annotations = self.__load_annotations(anno_file, anno_file_type)
-        self.random_crop = dataAug.RandomCrop()
-        self.random_flip = dataAug.RandomHorizontalFilp()
-        self.random_affine = dataAug.RandomAffine()
-        self.random_hsv = dataAug.RandomHSVAug(hue_jitter=0.05, bright_jitter=0.25, sat_jitter=0.25)
-        self.resize = dataAug.Resize(True)
-        self.random_mixup = dataAug.Mixup()
+        self.hue_jitter = 0.005
+        self.bright_jitter = 0.25
+        self.sat_jitter = 0.25
         self.label_smooth = dataAug.LabelSmooth()
-        self.moasaic = dataAug.Mosaic(cross_offset=0.2)
+        self.bbox_minsize = 40
         
     def __len__(self):
         return  len(self.__annotations)
@@ -68,7 +65,7 @@ class Build_Train_Dataset(Dataset):
             cut_y2 = random.randint(cut_y1 + int(h * 0.67), h)
             cut_x2 = int(cut_x1 + (cut_y2-cut_y1)/height_of_nth_pic*width_of_nth_pic)            
         
-        img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(height_of_nth_pic, width_of_nth_pic))
+        img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(width_of_nth_pic, height_of_nth_pic))
         
         relative_cut_x1 = cut_x1 / w
         relative_cut_y1 = cut_y1 / h
@@ -94,34 +91,32 @@ class Build_Train_Dataset(Dataset):
         bboxes[:, 3].clip(0, height_of_nth_pic)
 
         # RESIZING TO MOSAIC
-        if n == 0:
+        if mosaic_nr == 0:
             bboxes[:, 0] = bboxes[:, 0] 
             bboxes[:, 1] = bboxes[:, 1] 
             bboxes[:, 2] = bboxes[:, 2] 
             bboxes[:, 3] = bboxes[:, 3] 
-        elif n==1:
-            bboxes[:, 0] = bboxes[:, 0] + cross_x
+        elif mosaic_nr == 1:
+            bboxes[:, 0] = bboxes[:, 0] + cx
             bboxes[:, 1] = bboxes[:, 1]
-            bboxes[:, 2] = bboxes[:, 2] + cross_x
+            bboxes[:, 2] = bboxes[:, 2] + cx
             bboxes[:, 3] = bboxes[:, 3]
-        elif n==2:
+        elif mosaic_nr == 2:
             bboxes[:, 0] = bboxes[:, 0]
-            bboxes[:, 1] = bboxes[:, 1] + cross_y
+            bboxes[:, 1] = bboxes[:, 1] + cy
             bboxes[:, 2] = bboxes[:, 2]
-            bboxes[:, 3] = bboxes[:, 3] + cross_y
-        elif n==3:
-            bboxes[:, 0] = bboxes[:, 0] + cross_x
-            bboxes[:, 1] = bboxes[:, 1] + cross_y
-            bboxes[:, 2] = bboxes[:, 2] + cross_x
-            bboxes[:, 3] = bboxes[:, 3] + cross_y
+            bboxes[:, 3] = bboxes[:, 3] + cy
+        elif mosaic_nr == 3:
+            bboxes[:, 0] = bboxes[:, 0] + cx
+            bboxes[:, 1] = bboxes[:, 1] + cy
+            bboxes[:, 2] = bboxes[:, 2] + cx
+            bboxes[:, 3] = bboxes[:, 3] + cy
 
         # FILTER TO THROUGH OUT ALL SMALL BBOXES
         filter_minbbox = (bboxes[:, 2] - bboxes[:, 0] > self.bbox_minsize) & (bboxes[:, 3] - bboxes[:, 1] > self.bbox_minsize)
-        boxes = boxes[filter_minbbox]
+        bboxes = bboxes[filter_minbbox]
 
-        return img, boxes        
-        
-        
+        return img, bboxes        
         
     def __get_mosaic(self,idx):
         
@@ -132,23 +127,24 @@ class Build_Train_Dataset(Dataset):
         
         raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[idx])
         frag_img, frag_bboxes = self.__get_frag(0, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
+        bboxes = frag_bboxes
         for i in range(1, 4):
             frag_idx = random.randint(0, len(self.__annotations)-1)
             raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[frag_idx])
             frag_img, frag_bboxes = self.__get_frag(i, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
-            if n==1:
+            if i==1:
                 mosaic_img[0:cross_y, cross_x:, :] = frag_img
-            elif n==2:
+            elif i==2:
                 mosaic_img[cross_y:, 0:cross_x, :] = frag_img
-            elif n==3:
+            elif i==3:
                 mosaic_img[cross_y:, cross_x:, :] = frag_img
-            
-        return img, bboxes
+            bboxes = np.concatenate([bboxes, frag_bboxes])
+        return mosaic_img, bboxes
     
     def __getitem__(self, item):
         assert item <= len(self), 'index range error'
 
-        img, bboxes = self.__get_mosaic(item)
+        img, bboxes = self.__get_mosaic(item) if random.random() < 0.5 else self.__parse_annotation(self.__annotations[item])
         img = img.transpose(2, 0, 1)  # HWC->CHW 
 
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
@@ -188,14 +184,67 @@ class Build_Train_Dataset(Dataset):
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
         
-        img, bboxes = self.resize(img, bboxes,(self.img_size, self.img_size))
-        img, bboxes = self.random_flip(img, bboxes)
-        img, bboxes = self.random_crop(img, bboxes)
-        img, bboxes = self.random_affine(img, bboxes)
-        img         = self.random_hsv(img)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-      
-        return img, bboxes
+        img = img.astype(np.float32)
+
+        resize_ratio = min(1.0 * self.img_size / img.shape[1], 1.0 * self.img_size / img.shape[0])
+        resize_w = int(resize_ratio * img.shape[0])
+        resize_h = int(resize_ratio * img.shape[1])
+        image_resized = cv2.resize(img, (resize_w, resize_h))
+
+        img = np.full((self.img_size, self.img_size, 3), 128.0)
+        dw = int((self.img_size - resize_w) / 2)
+        dh = int((self.img_size - resize_h) / 2)
+        img[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
+
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
+                
+        if random.random() < 0.5:
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2HSV).astype(np.float32)
+            img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
+            img[:,:,1] *= random.uniform(1-self.sat_jitter, 1+self.sat_jitter)
+            img[:,:,2] *= random.uniform(1-self.bright_jitter, 1+self.bright_jitter)
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_HSV2BGR)
+        
+        if random.random() < 0.5:
+            img = img[:, ::-1, :]
+            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]]
+            
+        # crop
+        # if random.random() < 0.5:
+        #     max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
+        #     max_l_trans = max_bbox[0]
+        #     max_u_trans = max_bbox[1]
+        #     max_r_trans = img.shape[1] - max_bbox[2]
+        #     max_d_trans = img.shape[0] - max_bbox[3]
+
+        #     crop_xmin = max(0, int(max_bbox[0] - random.uniform(0, max_l_trans)))
+        #     crop_ymin = max(0, int(max_bbox[1] - random.uniform(0, max_u_trans)))
+        #     crop_xmax = max(img.shape[1], int(max_bbox[2] + random.uniform(0, max_r_trans)))
+        #     crop_ymax = max(img.shape[0], int(max_bbox[3] + random.uniform(0, max_d_trans)))
+
+        #     img = img[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
+        #     bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
+        #     bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
+        
+        if random.random() < 0.5:
+            max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
+            max_l_trans = max_bbox[0]
+            max_u_trans = max_bbox[1]
+            max_r_trans = img.shape[1] - max_bbox[2]
+            max_d_trans = img.shape[0] - max_bbox[3]
+
+            tx = random.uniform(-(max_l_trans - 1), (max_r_trans - 1))
+            ty = random.uniform(-(max_u_trans - 1), (max_d_trans - 1))
+
+            M = np.array([[1, 0, tx], [0, 1, ty]])
+            img = cv2.warpAffine(img, M, img.shape[:2])
+
+            bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
+            bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
+            
+        img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
+        return img/255.0 , bboxes
 
     def __creat_label(self, bboxes):
         """
@@ -231,7 +280,6 @@ class Build_Train_Dataset(Dataset):
         for bbox in bboxes:
             bbox_coor = bbox[:4]
             bbox_class_ind = int(bbox[4])
-            bbox_mix = bbox[5]
 
             # onehot
             one_hot = np.zeros(self.num_classes, dtype=np.float32)
@@ -262,7 +310,7 @@ class Build_Train_Dataset(Dataset):
                     # Bug : 当多个bbox对应同一个anchor时，默认将该anchor分配给最后一个bbox
                     label[i][yind, xind, iou_mask, 0:4] = bbox_xywh
                     label[i][yind, xind, iou_mask, 4:5] = 1.0
-                    label[i][yind, xind, iou_mask, 5:6] = bbox_mix
+                    label[i][yind, xind, iou_mask, 5:6] = 1.0
                     label[i][yind, xind, iou_mask, 6:] = one_hot_smooth
 
                     bbox_ind = int(bbox_count[i] % 90)  # BUG : 90为一个先验值,内存消耗大
@@ -279,7 +327,7 @@ class Build_Train_Dataset(Dataset):
                 xind, yind = np.floor(bbox_xywh_scaled[best_detect, 0:2]).astype(np.int32)
                 label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
                 label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
-                label[best_detect][yind, xind, best_anchor, 5:6] = bbox_mix
+                label[best_detect][yind, xind, best_anchor, 5:6] = 1.0
                 label[best_detect][yind, xind, best_anchor, 6:] = one_hot_smooth
 
                 bbox_ind = int(bbox_count[best_detect] % 90)
@@ -342,9 +390,11 @@ class Build_VAL_Dataset(Dataset):
         return img, target
 
 if __name__ == "__main__":
-
-    yolo_dataset = Build_Train_Dataset(cfg.TRAIN.ANNO_FILE,anno_file_type="train", img_size=608)
-    dataloader = DataLoader(voc_dataset, shuffle=True, batch_size=1, num_workers=0)
+    import sys
+    anno_file = sys.argv[1]
+    
+    yolo_dataset = Build_Train_Dataset(anno_file,anno_file_type="train", img_size=608)
+    dataloader = DataLoader(yolo_dataset, shuffle=True, batch_size=4, num_workers=0)
 
     for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(dataloader):
         if i==0:

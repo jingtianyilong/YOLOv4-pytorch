@@ -109,10 +109,10 @@ class Trainer(object):
         n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE) + 1
         n_remainder = n_train % (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
-        evaluator = COCOAPIEvaluator(cfg=cfg,
-                    img_size=cfg.VAL.TEST_IMG_SIZE,
-                    confthre=cfg.VAL.CONF_THRESH,
-                    nmsthre=cfg.VAL.NMS_THRESH)
+        # evaluator = COCOAPIEvaluator(cfg=cfg,
+        #             img_size=cfg.VAL.TEST_IMG_SIZE,
+        #             confthre=cfg.VAL.CONF_THRESH,
+        #             nmsthre=cfg.VAL.NMS_THRESH)
         if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
 
         if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
@@ -157,22 +157,17 @@ class Trainer(object):
                         writer.add_scalar('train/loss_cls', loss_cls, n_step * epoch + i)
                         writer.add_scalar('train/train_loss', loss, n_step * epoch + i)
                         writer.add_scalar('train/lr', self.optimizer.param_groups[0]['lr'], n_step * epoch + i)
-                        # pbar.set_postfix(**{"img_size": self.train_dataset.img_size,
-                        #                 "total_loss": float(loss),
-                        #                 "loss_ciou": float(loss_ciou),
-                        #                 "loss_conf": float(loss_conf),
-                        #                 "loss_cls": float(loss_ciou),
-                        #                 "lr": float(self.optimizer.param_groups[0]['lr'])})
+
                     # multi-sclae training (320-608 pixels) every 10 batches
                     if self.multi_scale_train and (i+1) % (5*self.accumulate) == 0:
                         self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     pbar.update(imgs.shape[0])
                 
             mAP = 0.
-            # evaluator = COCOAPIEvaluator(cfg=cfg,
-            #             img_size=cfg.VAL.TEST_IMG_SIZE,
-            #             confthre=cfg.VAL.CONF_THRESH,
-            #             nmsthre=cfg.VAL.NMS_THRESH)
+            evaluator = COCOAPIEvaluator(cfg=cfg,
+                        img_size=cfg.VAL.TEST_IMG_SIZE,
+                        confthre=cfg.VAL.CONF_THRESH,
+                        nmsthre=cfg.VAL.NMS_THRESH)
             coco_stat = evaluator.evaluate(self.yolov4)
             logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[0]))
             logger.info("Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[1]))            
