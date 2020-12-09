@@ -40,6 +40,7 @@ class Build_Train_Dataset(Dataset):
 
     def __get_frag(self, mosaic_nr, cx, cy, img, bboxes):
         h, w, _ = img.shape
+        
         if mosaic_nr == 0:
             width_of_nth_pic = cx 
             height_of_nth_pic = cy
@@ -52,7 +53,6 @@ class Build_Train_Dataset(Dataset):
         elif mosaic_nr == 3:
             width_of_nth_pic = self.img_size - cx
             height_of_nth_pic = self.img_size - cy
-            
         # top left corner
         cut_x1 = random.randint(0, int(w * 0.33))
         cut_y1 = random.randint(0, int(h * 0.33))
@@ -67,8 +67,8 @@ class Build_Train_Dataset(Dataset):
         
         img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(width_of_nth_pic, height_of_nth_pic))
         
-        w_ratio = w / (cut_x2 - cut_x1) 
-        h_ratio = h / (cut_y2 - cut_y1)
+        w_ratio = width_of_nth_pic / (cut_x2 - cut_x1)
+        h_ratio = height_of_nth_pic / (cut_y2 - cut_y1)
 
         # SHIFTING TO CUTTED IMG SO X1 Y1 WILL 0
         bboxes[:, 0] -= cut_x1
@@ -83,37 +83,27 @@ class Build_Train_Dataset(Dataset):
         bboxes[:, 3] *= h_ratio
 
         # CLAMPING BOUNDING BOXES, SO THEY DO NOT OVERCOME OUTSIDE THE IMAGE
-        bboxes[:, 0].clip(0, w-1)
-        bboxes[:, 1].clip(0, h-1)
-        bboxes[:, 2].clip(0, w-1)
-        bboxes[:, 3].clip(0, h-1)
+        bboxes[:, 0] = bboxes[:,0].clip(0, width_of_nth_pic-1)
+        bboxes[:, 1] = bboxes[:,1].clip(0, height_of_nth_pic-1)
+        bboxes[:, 2] = bboxes[:,2].clip(0, width_of_nth_pic-1)
+        bboxes[:, 3] = bboxes[:,3].clip(0, height_of_nth_pic-1)
 
         # RESIZING TO MOSAIC
-        if mosaic_nr == 0:
-            bboxes[:, 0] = bboxes[:, 0] 
-            bboxes[:, 1] = bboxes[:, 1] 
-            bboxes[:, 2] = bboxes[:, 2] 
-            bboxes[:, 3] = bboxes[:, 3] 
-        elif mosaic_nr == 1:
-            bboxes[:, 0] = bboxes[:, 0] + cx
-            bboxes[:, 1] = bboxes[:, 1]
-            bboxes[:, 2] = bboxes[:, 2] + cx
-            bboxes[:, 3] = bboxes[:, 3]
+        if mosaic_nr == 1:
+            bboxes[:, 0] += cx
+            bboxes[:, 2] += cx
         elif mosaic_nr == 2:
-            bboxes[:, 0] = bboxes[:, 0]
-            bboxes[:, 1] = bboxes[:, 1] + cy
-            bboxes[:, 2] = bboxes[:, 2]
-            bboxes[:, 3] = bboxes[:, 3] + cy
+            bboxes[:, 1] += cy
+            bboxes[:, 3] += cy
         elif mosaic_nr == 3:
-            bboxes[:, 0] = bboxes[:, 0] + cx
-            bboxes[:, 1] = bboxes[:, 1] + cy
-            bboxes[:, 2] = bboxes[:, 2] + cx
-            bboxes[:, 3] = bboxes[:, 3] + cy
+            bboxes[:, 0] += cx
+            bboxes[:, 1] += cy
+            bboxes[:, 2] += cx
+            bboxes[:, 3] += cy
 
         # FILTER TO THROUGH OUT ALL SMALL BBOXES
-        filter_minbbox = (bboxes[:, 2] - bboxes[:, 0] > self.bbox_minsize) & (bboxes[:, 3] - bboxes[:, 1] > self.bbox_minsize)
+        filter_minbbox = (bboxes[:, 3] - bboxes[:, 1]) > self.bbox_minsize
         bboxes = bboxes[filter_minbbox]
-        print(bboxes)
         return img, bboxes        
         
     def __get_mosaic(self,idx):

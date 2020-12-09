@@ -148,7 +148,7 @@ class Trainer(object):
                         self.optimizer.zero_grad()
 
                     # Print batch results
-                    if i % (5*self.accumulate) == 0:
+                    if i % (500*self.accumulate) == 0:
                         logger.info("{:3}: total_loss:{:.4f} | loss_ciou:{:.4f} | loss_conf:{:.4f} | loss_cls:{:.4f} | lr:{:.6f}".format(
                             self.train_dataset.img_size, loss, loss_ciou, loss_conf, loss_cls, self.optimizer.param_groups[0]['lr']
                         ))
@@ -168,7 +168,7 @@ class Trainer(object):
                         img_size=cfg.VAL.TEST_IMG_SIZE,
                         confthre=cfg.VAL.CONF_THRESH,
                         nmsthre=cfg.VAL.NMS_THRESH)
-            coco_stat = evaluator.evaluate(self.yolov4)
+            coco_stat = evaluator.evaluate(bself.yolov4)
             logger.info("Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[0]))
             logger.info("Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[1]))            
             logger.info("Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = {:.04f}".format(coco_stat[2]))            
