@@ -28,8 +28,8 @@ class COCODataset(Dataset):
         """
         self.cfg = cfg
         self.val_dataset = Build_VAL_Dataset(cfg)
-        self.val_loader = DataLoader(self.val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
-                            pin_memory=True, drop_last=True, collate_fn=val_collate)
+        # self.val_loader = DataLoader(self.val_dataset, batch_size=cfg.VAL.BATCH_SIZE, shuffle=True, num_workers=8,
+        #                     pin_memory=True, drop_last=True, collate_fn=val_collate)
         self.coco = self.convert_to_coco_api()
         
         self.ids = self.coco.getImgIds()
@@ -107,7 +107,6 @@ class COCODataset(Dataset):
         categories = set()
         for img_idx in range(len(self.val_dataset)):
             # find better way to get target
-            # targets = ds.get_annotations(img_idx)
             img, targets = self.val_dataset[img_idx]
             image_id = targets["image_id"].item()
             img_dict = {}

@@ -67,16 +67,14 @@ class Build_Train_Dataset(Dataset):
         
         img = cv2.resize(img[cut_y1:cut_y2, cut_x1:cut_x2, :],(width_of_nth_pic, height_of_nth_pic))
         
-        relative_cut_x1 = cut_x1 / w
-        relative_cut_y1 = cut_y1 / h
         w_ratio = w / (cut_x2 - cut_x1) 
-        h_ratio = h / (cut_y2 - cut_y1) / h
+        h_ratio = h / (cut_y2 - cut_y1)
 
         # SHIFTING TO CUTTED IMG SO X1 Y1 WILL 0
-        bboxes[:, 0] = bboxes[:, 0] - cut_x1
-        bboxes[:, 1] = bboxes[:, 1] - cut_y1
-        bboxes[:, 2] = bboxes[:, 2] - cut_x1
-        bboxes[:, 3] = bboxes[:, 3] - cut_y1
+        bboxes[:, 0] -= cut_x1
+        bboxes[:, 1] -= cut_y1
+        bboxes[:, 2] -= cut_x1
+        bboxes[:, 3] -= cut_y1
 
         # RESIZING TO CUTTED IMG SO X2 WILL BE 1
         bboxes[:, 0] *= w_ratio
@@ -85,10 +83,10 @@ class Build_Train_Dataset(Dataset):
         bboxes[:, 3] *= h_ratio
 
         # CLAMPING BOUNDING BOXES, SO THEY DO NOT OVERCOME OUTSIDE THE IMAGE
-        bboxes[:, 0].clip(0, width_of_nth_pic)
-        bboxes[:, 1].clip(0, height_of_nth_pic)
-        bboxes[:, 2].clip(0, width_of_nth_pic)
-        bboxes[:, 3].clip(0, height_of_nth_pic)
+        bboxes[:, 0].clip(0, w-1)
+        bboxes[:, 1].clip(0, h-1)
+        bboxes[:, 2].clip(0, w-1)
+        bboxes[:, 3].clip(0, h-1)
 
         # RESIZING TO MOSAIC
         if mosaic_nr == 0:
@@ -115,7 +113,7 @@ class Build_Train_Dataset(Dataset):
         # FILTER TO THROUGH OUT ALL SMALL BBOXES
         filter_minbbox = (bboxes[:, 2] - bboxes[:, 0] > self.bbox_minsize) & (bboxes[:, 3] - bboxes[:, 1] > self.bbox_minsize)
         bboxes = bboxes[filter_minbbox]
-
+        print(bboxes)
         return img, bboxes        
         
     def __get_mosaic(self,idx):
@@ -146,7 +144,7 @@ class Build_Train_Dataset(Dataset):
 
         img, bboxes = self.__get_mosaic(item) if random.random() < 0.5 else self.__parse_annotation(self.__annotations[item])
         img = img.transpose(2, 0, 1)  # HWC->CHW 
-
+        # print(bboxes)
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
 
         img = torch.from_numpy(img).float()
@@ -183,9 +181,22 @@ class Build_Train_Dataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
+        bboxes[:, [0,2]].clip(0,img.shape[1]-1)
+        bboxes[:, [1,3]].clip(0,img.shape[0]-1)
         
         img = img.astype(np.float32)
 
+        if random.random() < 0.5:
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2HSV).astype(np.float32)
+            img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
+            img[:,:,1] *= random.uniform(1-self.sat_jitter, 1+self.sat_jitter)
+            img[:,:,2] *= random.uniform(1-self.bright_jitter, 1+self.bright_jitter)
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_HSV2BGR)
+        
+        if random.random() < 0.5:
+            img = img[:, ::-1, :]
+            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]] - 1
+            
         resize_ratio = min(1.0 * self.img_size / img.shape[1], 1.0 * self.img_size / img.shape[0])
         resize_w = int(resize_ratio * img.shape[0])
         resize_h = int(resize_ratio * img.shape[1])
@@ -198,55 +209,9 @@ class Build_Train_Dataset(Dataset):
 
         bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw
         bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
-                
-        if random.random() < 0.5:
-            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2HSV).astype(np.float32)
-            img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
-            img[:,:,1] *= random.uniform(1-self.sat_jitter, 1+self.sat_jitter)
-            img[:,:,2] *= random.uniform(1-self.bright_jitter, 1+self.bright_jitter)
-            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_HSV2BGR)
-        
-        if random.random() < 0.5:
-            img = img[:, ::-1, :]
-            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]]
-            
-        # crop
-        # if random.random() < 0.5:
-        #     max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
-        #     max_l_trans = max_bbox[0]
-        #     max_u_trans = max_bbox[1]
-        #     max_r_trans = img.shape[1] - max_bbox[2]
-        #     max_d_trans = img.shape[0] - max_bbox[3]
-
-        #     crop_xmin = max(0, int(max_bbox[0] - random.uniform(0, max_l_trans)))
-        #     crop_ymin = max(0, int(max_bbox[1] - random.uniform(0, max_u_trans)))
-        #     crop_xmax = max(img.shape[1], int(max_bbox[2] + random.uniform(0, max_r_trans)))
-        #     crop_ymax = max(img.shape[0], int(max_bbox[3] + random.uniform(0, max_d_trans)))
-
-        #     img = img[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
-        #     bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
-        #     bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
-        
-        if random.random() < 0.5:
-            max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
-            max_l_trans = max_bbox[0]
-            max_u_trans = max_bbox[1]
-            max_r_trans = img.shape[1] - max_bbox[2]
-            max_d_trans = img.shape[0] - max_bbox[3]
-
-            tx = random.uniform(-(max_l_trans - 1), (max_r_trans - 1))
-            ty = random.uniform(-(max_u_trans - 1), (max_d_trans - 1))
-
-            M = np.array([[1, 0, tx], [0, 1, ty]])
-            img = cv2.warpAffine(img, M, img.shape[:2])
-
-            bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
-            bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
-        bboxes.clip(0,self.img_size)
-            
         img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
-        return img/255.0 , bboxes
-
+        
+        return img/255.0 , bboxes.clip(0,self.img_size-1)
     def __creat_label(self, bboxes):
         """
         Label assignment. For a single picture all GT box bboxes are assigned anchor.
@@ -277,7 +242,7 @@ class Build_Train_Dataset(Dataset):
 
         bboxes_xywh = [np.zeros((90, 4)) for _ in range(3)]   # Darknet the max_num is 30
         bbox_count = np.zeros((3,))
-
+        # print(bboxes)
         for bbox in bboxes:
             bbox_coor = bbox[:4]
             bbox_class_ind = int(bbox[4])
