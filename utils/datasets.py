@@ -71,35 +71,25 @@ class Build_Train_Dataset(Dataset):
         h_ratio = height_of_nth_pic / (cut_y2 - cut_y1)
 
         # SHIFTING TO CUTTED IMG SO X1 Y1 WILL 0
-        bboxes[:, 0] -= cut_x1
-        bboxes[:, 1] -= cut_y1
-        bboxes[:, 2] -= cut_x1
-        bboxes[:, 3] -= cut_y1
+        bboxes[:, [0,2]] -= cut_x1
+        bboxes[:, [1,3]] -= cut_y1
 
         # RESIZING TO CUTTED IMG SO X2 WILL BE 1
-        bboxes[:, 0] *= w_ratio
-        bboxes[:, 1] *= h_ratio
-        bboxes[:, 2] *= w_ratio
-        bboxes[:, 3] *= h_ratio
+        bboxes[:, [0,2]] *= w_ratio
+        bboxes[:, [1,3]] *= h_ratio
 
         # CLAMPING BOUNDING BOXES, SO THEY DO NOT OVERCOME OUTSIDE THE IMAGE
-        bboxes[:, 0] = bboxes[:,0].clip(0, width_of_nth_pic-1)
-        bboxes[:, 1] = bboxes[:,1].clip(0, height_of_nth_pic-1)
-        bboxes[:, 2] = bboxes[:,2].clip(0, width_of_nth_pic-1)
-        bboxes[:, 3] = bboxes[:,3].clip(0, height_of_nth_pic-1)
+        bboxes[:, [0,2]] = bboxes[:, [0,2]].clip(0, width_of_nth_pic-1)
+        bboxes[:, [1,3]] = bboxes[:, [1,3]].clip(0, height_of_nth_pic-1)
 
         # RESIZING TO MOSAIC
         if mosaic_nr == 1:
-            bboxes[:, 0] += cx
-            bboxes[:, 2] += cx
+            bboxes[:, [0,2]] += cx
         elif mosaic_nr == 2:
-            bboxes[:, 1] += cy
-            bboxes[:, 3] += cy
+            bboxes[:, [1,3]] += cy
         elif mosaic_nr == 3:
-            bboxes[:, 0] += cx
-            bboxes[:, 1] += cy
-            bboxes[:, 2] += cx
-            bboxes[:, 3] += cy
+            bboxes[:, [0,2]] += cx
+            bboxes[:, [1,3]] += cy
 
         # FILTER TO THROUGH OUT ALL SMALL BBOXES
         filter_minbbox = (bboxes[:, 3] - bboxes[:, 1]) > self.bbox_minsize
@@ -171,11 +161,10 @@ class Build_Train_Dataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-        bboxes[:, [0,2]].clip(0,img.shape[1]-1)
-        bboxes[:, [1,3]].clip(0,img.shape[0]-1)
         
         img = img.astype(np.float32)
-
+        
+        # mosaic include mostly crop and moving. so no need for crop and affine transform here
         if random.random() < 0.5:
             img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2HSV).astype(np.float32)
             img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
