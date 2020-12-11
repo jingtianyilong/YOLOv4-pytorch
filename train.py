@@ -89,10 +89,12 @@ class Trainer(object):
         last_weight = os.path.join(log_dir,"checkpoints", "last.pt")    
         shutil.copy2(best_weight,
                      best_weight.replace("best.pt","best_before_fine_tune.pt"))
+        shutil.copy2(last_weight,
+                     last_weight.replace("last.pt","last_before_fine_tune.pt"))
         last_chkpt = torch.load(last_weight, map_location=self.device)
         best_chkpt = torch.load(best_weight, map_location=self.device)
         self.yolov4.load_state_dict(best_chkpt)
-        self.best_mAP = last_chkpt['best_mAP']
+        self.best_mAP = 0 
         del last_chkpt, best_chkpt
 
         
