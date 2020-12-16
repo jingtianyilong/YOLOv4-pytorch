@@ -1,32 +1,35 @@
 import logging, datetime
 import utils.gpu as gpu
 from model.build_model import Build_Model
+from torch.autograd import Variable
+
 from tqdm import tqdm
 import torch
 import time
+import json
 import argparse
 from eval.evaluator import *
 from utils.tools import *
 from config import cfg
 from config import update_config
 from utils.log import Logger
-from utils.utils import init_seed
-from eval_coco import *
+from utils.utils import *
+from torch.utils.data import Dataset, DataLoader
 from eval.cocoapi_evaluator import COCOAPIEvaluator
 
 class Naive_Test_Dataset(Dataset):
-    def __init__(self, cfg, test_images):
+    def __init__(self, test_images):
         super().__init__()
         self.cfg = cfg
         self.img_size = cfg.VAL.TEST_IMG_SIZE
-        self.imgs = [filename.replace("data/","/data/ECP_origin").replace("images","img") for filename in test_images]
+        self.imgs = [filename.replace("data/","/data/").replace("images","img") for filename in test_images]
 
-    def __len___(self):
+    def __len__(self):
         return len(self.imgs)   
 
-    def __getitem(self, index):
+    def __getitem__(self, index):
         img_path = self.imgs[index]
-        img = cv2.imread(os.path.join(cfg.DATA_PATH, img_path))
+        img = cv2.imread(img_path)
         img, info_img = preprocess(img, self.img_size, jitter=0,
                                    random_placing=0)
         img = np.transpose(img / 255., (2, 0, 1))
@@ -54,28 +57,34 @@ class LAMR_Tester(object):
     def test(self):
         logger.info(self.yolov4)
         self.yolov4.eval()
-        Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+        Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
         results_path = os.path.join("/data","mock_detections","day","test")
         if not os.path.exists(results_path):
             os.makedirs(results_path)
         for i,(img_path, img, info_img) in tqdm(enumerate(self.dataloader),desc="Test to ECP... ", unit="imgs", total=len(self.dataloader)):
-            with torch.no_grad():
-                img = Variable(img.type(Tensor))
-                _,outputs = model(img)
-                outputs=outputs.unsqueeze(0)
-                outputs = postprocess(
-                    outputs, self.class_num, self.confthre, self.nmsthre)
-                if outputs[0] is None:
-                    continue
-                outputs = outputs[0].cpu().data
             data_dict = {
-                "tags": []
-                "imageheight":img.shape[1]
-                "imagewidth": img.shape[2]
-                "children": []
+                "tags": [],
+                "imageheight":int(info_img[0]),
+                "imagewidth": int(info_img[1]),
+                "children": [],
                 "identity": "frame"
             }
+            city_name = os.path.basename(os.path.dirname(img_path[0]))
+            os.makedirs(os.path.join(results_path,city_name),exist_ok=True)
+            result_json_path = os.path.join(results_path,city_name,os.path.basename(img_path[0]).replace("png","json"))
             
+            with torch.no_grad():
+                img = Variable(img.type(Tensor))
+                _,outputs = self.yolov4(img)
+                outputs=outputs.unsqueeze(0)
+                outputs = postprocess(
+                    outputs, len(cfg.DATASET.CLASSES), cfg.VAL.CONF_THRESH, cfg.VAL.NMS_THRESH)
+                if outputs[0] is None:
+                    with open(result_json_path,"w") as json_fh:
+                        json.dump(data_dict,json_fh,indent=4)
+                    continue
+                outputs = outputs[0].cpu().data
+
             for output in outputs:
                 x1 = float(output[0])
                 y1 = float(output[1])
@@ -83,19 +92,15 @@ class LAMR_Tester(object):
                 y2 = float(output[3])
                 box = yolobox2label((y1, x1, y2, x2), info_img)
 
-                A = {"tags": ["occluded>10"],
+                data_dict["children"].append({"tags": ["occluded>10"],
                      "children": [],
                      "identity": self.id_map[int(output[6])],
-                     "x0": box[0],
-                     "y0": box[1],
-                     "x1": box[2],
-                     "y1": box[3]
-                     } # ECP json format
-                data_dict["children"].append(A)
-            city_name = os.path.basename(os.path.dirname(img_path))
-            os.makedirs(os.path.join(results_path,city_name),exist_ok=True)
-            result_json_path = os.path.join(results_path,city_name,os.path.basename(img_path).replace("png","json"))
-            with open(result_json_path) as json_fh:
+                     "x0": int(box[0]),
+                     "y0": int(box[1]),
+                     "x1": int(box[2]),
+                     "y1": int(box[3])
+                     }) # ECP Formats
+            with open(result_json_path,"w") as json_fh:
                 json.dump(data_dict,json_fh,indent=4)
 
         
@@ -149,4 +154,4 @@ if __name__ == "__main__":
     with open(args.split_file,"r") as f:
         split_fh = json.load(f)
         test_images_list = split_fh["test"]
-    Tester(log_dir,test_image_list).test()
+    LAMR_Tester(log_dir,test_images_list).test()
