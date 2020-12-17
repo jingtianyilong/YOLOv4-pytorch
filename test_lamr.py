@@ -58,10 +58,11 @@ class LAMR_Tester(object):
         logger.info(self.yolov4)
         self.yolov4.eval()
         Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-        results_path = os.path.join("/data","mock_detections","day","test")
+        results_path = os.path.join("/data","mock_detections","day","val")
         if not os.path.exists(results_path):
             os.makedirs(results_path)
         for i,(img_path, img, info_img) in tqdm(enumerate(self.dataloader),desc="Test to ECP... ", unit="imgs", total=len(self.dataloader)):
+            info_img = [float(info) for info in info_img]
             data_dict = {
                 "tags": [],
                 "imageheight":int(info_img[0]),
@@ -71,7 +72,7 @@ class LAMR_Tester(object):
             }
             city_name = os.path.basename(os.path.dirname(img_path[0]))
             os.makedirs(os.path.join(results_path,city_name),exist_ok=True)
-            result_json_path = os.path.join(results_path,city_name,os.path.basename(img_path[0]).replace("png","json"))
+            result_json_path = os.path.join(results_path,os.path.basename(img_path[0]).replace("png","json"))
             
             with torch.no_grad():
                 img = Variable(img.type(Tensor))
@@ -91,14 +92,14 @@ class LAMR_Tester(object):
                 x2 = float(output[2])
                 y2 = float(output[3])
                 box = yolobox2label((y1, x1, y2, x2), info_img)
-
-                data_dict["children"].append({"tags": ["occluded>10"],
+                data_dict["children"].append({"tags": [],
                      "children": [],
                      "identity": self.id_map[int(output[6])],
-                     "x0": int(box[0]),
-                     "y0": int(box[1]),
-                     "x1": int(box[2]),
-                     "y1": int(box[3])
+                     "score":float(output[4])*float(output[5]),
+                     "y0": float(box[0]),
+                     "x0": float(box[1]),
+                     "y1": float(box[2]),
+                     "x1": float(box[3])
                      }) # ECP Formats
             with open(result_json_path,"w") as json_fh:
                 json.dump(data_dict,json_fh,indent=4)
