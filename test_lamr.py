@@ -58,7 +58,7 @@ class LAMR_Tester(object):
         logger.info(self.yolov4)
         self.yolov4.eval()
         Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-        results_path = os.path.join("/data","mock_detections","day","val")
+        results_path = os.path.join("/data","mock_detections",os.path.basename(self.log_dir),"day","val")
         if not os.path.exists(results_path):
             os.makedirs(results_path)
         for i,(img_path, img, info_img) in tqdm(enumerate(self.dataloader),desc="Test to ECP... ", unit="imgs", total=len(self.dataloader)):
@@ -79,7 +79,7 @@ class LAMR_Tester(object):
                 _,outputs = self.yolov4(img)
                 outputs=outputs.unsqueeze(0)
                 outputs = postprocess(
-                    outputs, len(cfg.DATASET.CLASSES), cfg.VAL.CONF_THRESH, cfg.VAL.NMS_THRESH)
+                    outputs, len(cfg.DATASET.CLASSES), 0.01, cfg.VAL.NMS_THRESH)
                 if outputs[0] is None:
                     with open(result_json_path,"w") as json_fh:
                         json.dump(data_dict,json_fh,indent=4)
