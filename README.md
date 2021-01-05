@@ -9,7 +9,7 @@ class Trainer(object):
         init_seeds(0)
 ```
 
-Currently, Mosaic lies on a separate branch `mosaic`, which is a little different to the master branch. Also, we eliminate mix up and speed up the data augmentation. Might still be buggy. You can use this version using:
+Currently, Mosaic lies on a separate branch `mosaic`, which is a little different to the master branch. Also, we eliminate mix up and speed up the data augmentation. We plan to merge this back to master after all the development and testing finished. It might still be buggy now. You can use this beta version by:
 ```
 git checkout mosaic
 ``` 
@@ -35,6 +35,17 @@ Copy the output to the yaml file you create. To train, you can run:
 python train.py --config_file experiments/your_file.yaml 
 ```
 Notice that the training would use all available GPU. So change `visible_gpu` variable if you have specific needs.
+
+We also provide a proper way to fine tune your model. You should first train your original model. The script would find your best checkpoint before fine tune and keep on training for several epochs. You should modify the settings in "FINT_TUNE" in your yaml file. `LR_INIT` in fine tune part should be a lot smaller than which before fine tune.
+```
+FINE_TUNE:
+  ANNO_FILE: "fine_tune.txt"
+  YOLO_EPOCHS: 50
+  LR_INIT: 1e-3
+  LR_END: 5e-5
+  WARMUP_EPOCHS: 0
+```
+
 
 ## Validation
 Validation goes automatically every epoch, and it is based on COCO API. Basically, we predict every images in the validation set and generate a COCO format result and submit it to the COCO Toolkit. 
