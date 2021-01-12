@@ -108,7 +108,7 @@ class YoloV4Loss(nn.Module):
 
 
         # loss confidence
-        iou = tools.iou_xywh_torch(p_d_xywh.unsqueeze(4), bboxes.unsqueeze(1).unsqueeze(1).unsqueeze(1))
+        iou = tools.CIOU_xywh_torch(p_d_xywh.unsqueeze(4), bboxes.unsqueeze(1).unsqueeze(1).unsqueeze(1))
         iou_max = iou.max(-1, keepdim=True)[0]
         label_noobj_mask = (1.0 - label_obj_mask) * (iou_max < self.__iou_threshold_loss).float()
 

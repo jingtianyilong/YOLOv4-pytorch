@@ -11,20 +11,19 @@ TRAIN:
   MULTI_SCALE_TRAIN: True
   IOU_THRESHOLD_LOSS: 0.5
   YOLO_EPOCHS: 250
-  NUMBER_WORKERS: 16
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0005
   LR_INIT: 5e-3
   LR_END: 5e-5
-  WARMUP_EPOCHS: 20  # or None
+  WARMUP_EPOCHS: 15  # or None
 
 VAL:
   ANNO_FILE: "anyverse_val_no_empty.txt"
   TEST_IMG_SIZE: 608
   BATCH_SIZE: 1
   NUMBER_WORKERS: 8
-  CONF_THRESH: 0.5
-  NMS_THRESH: 0.45
+  CONF_THRESH: 0.25
+  NMS_THRESH: 0.5
   MULTI_SCALE_VAL: False
   FLIP_VAL: False
   Visual: True
@@ -40,3 +39,4 @@ DATASET:
     "Car",
     "Motorbike",
     "Truck"]
+
