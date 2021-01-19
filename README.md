@@ -6,7 +6,7 @@ This is a PyTorch re-implementation of YOLOv4 architecture based on the [argussw
 ```
 class Trainer(object):
     def __init__(self, log_dir, resume=False, fine_tune=False):
-        init_seeds(0)
+        init_seeds(0) ## COMMENT OUT THIS LINE
 ```
 
 Currently, Mosaic lies on a separate branch `mosaic`, which is a little different to the master branch. Also, we eliminate mix up and speed up the data augmentation. We plan to merge this back to master after all the development and testing finished. It might still be buggy now. You can use this beta version by:
