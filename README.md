@@ -23,7 +23,11 @@ Each line would contain only one image and all the annotation about the bbox com
 images/00001.png x1,y1,x2,y2,class_id x1,y1,x2,y2,class_id x1,y1,x2,y2,class_id x1,y1,x2,y2,class_id 
 images/00002.png x1,y1,x2,y2,class_id x1,y1,x2,y2,class_id 
 ```
+`x1, y1` refer to the coordinates of top left corner.
+`x2, y2` refer to the coordinates of bottom right corner.
+All the coordinates are pixel wise location on the original image.
 
+To make sure that the COCOAPI works properly, you might also have to change your image name to a number e.g. `0000234.png`. Or else you might modify the `get_image_id` in `utils/datasets.py` and other function related to index respectively.
 
 ## Training
 Modify the `.yaml` file in `./experiments/`. Remember to modify the anchor box part. You can generate the anchor box by using:
