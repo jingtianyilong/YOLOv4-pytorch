@@ -71,11 +71,11 @@ def visualize_boxes_and_labels_on_image_array(
     instance_masks=None,
     instance_boundaries=None,
     use_normalized_coordinates=False,
-    max_boxes_to_draw=20,
-    min_score_thresh=.5,
+    max_boxes_to_draw=100,
+    min_score_thresh=.0,
     agnostic_mode=False,
-    line_thickness=4,
-    groundtruth_box_visualization_color='black',
+    line_thickness=6,
+    groundtruth_box_visualization_color=(0,255,0),
     skip_scores=False,
     skip_labels=False):
   """Overlay labeled boxes on an image with formatted scores and label names.
@@ -124,11 +124,11 @@ def visualize_boxes_and_labels_on_image_array(
   box_to_instance_boundaries_map = {}
   if not max_boxes_to_draw:
     max_boxes_to_draw = boxes.shape[0]
-
-  sorted_ind = np.argsort(-scores)
-  boxes=boxes[sorted_ind]
-  scores=scores[sorted_ind]
-  classes=classes[sorted_ind]
+  if scores is not None:
+    sorted_ind = np.argsort(-scores)
+    boxes=boxes[sorted_ind]
+    scores=scores[sorted_ind]
+    classes=classes[sorted_ind]
   for i in range(min(max_boxes_to_draw, boxes.shape[0])):
     if scores is None or scores[i] > min_score_thresh:
       box = tuple(boxes[i].tolist())
@@ -147,6 +147,7 @@ def visualize_boxes_and_labels_on_image_array(
             else:
               class_name = 'N/A'
             display_str = str(class_name)
+            display_str = str("")
         if not skip_scores:
           if not display_str:
             display_str = '{}%'.format(int(100 * scores[i]))
@@ -264,11 +265,12 @@ def draw_bounding_box_on_image(image,
   else:
     (left, right, top, bottom) = (xmin, xmax, ymin, ymax)
   draw.line([(left, top), (left, bottom), (right, bottom),
-             (right, top), (left, top)], width=2, fill=color)
+             (right, top), (left, top)], width=thickness, fill=color)
   try:
-    font = ImageFont.truetype('/workspace/code/FiraCode-Bold.ttf', 24)
+    font = ImageFont.truetype('/workspace/code/arial.ttf', 24)
   except IOError:
     font = ImageFont.load_default()
+  
 
   # If the total height of the display strings added to the top of the bounding
   # box exceeds the top of the image, stack the strings below the bounding box

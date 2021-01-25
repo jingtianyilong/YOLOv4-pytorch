@@ -1,4 +1,6 @@
 import utils.gpu as gpu
+import random
+from tqdm import tqdm
 from model.build_model import Build_Model
 from utils.tools import *
 from eval.evaluator import Evaluator
@@ -18,12 +20,14 @@ class Detection(object):
         self.__label_path = os.path.join("/data",label_path)
         self.get_first_10_imgs()
         self.__num_class = cfg.DATASET.NUM
-        self.__conf_threshold = cfg.VAL.CONF_THRESH
-        self.__nms_threshold = cfg.VAL.NMS_THRESH
+        
+        # these should be set still
+        self.__conf_threshold = 0.25
+        self.__nms_threshold = 0.5
+        #######################################
+        
         self.__device = gpu.select_device()
         self.__classes = cfg.DATASET.CLASSES
-
-        # self.__video_path = video_path
         self.__output_dir = output_dir
         self.__model = Build_Model().to(self.__device)
 
@@ -44,7 +48,8 @@ class Detection(object):
         import cv2
 
         accum_time = 0
-        for image_path in self.__file_list:
+        for image_path in tqdm(self.__file_dict.keys()):
+            # print(self.__file_dict[image_path])
             frame = cv2.imread(image_path)
             # prev_time = timer()
             bboxes_prd = self.__evalter.get_bbox(frame)
@@ -53,23 +58,37 @@ class Detection(object):
                 class_inds = bboxes_prd[..., 5].astype(np.int32)
                 scores = bboxes_prd[..., 4]
                 visualize_boxes(image=frame, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes)
-            # curr_time = timer()
-            # accum_time +=  curr_time - prev_time
+                visualize_boxes_and_labels_on_image_array(image=frame, boxes=self.__file_dict[image_path][:,:4], classes=self.__file_dict[image_path][:,4], scores=None, category_index=self.__classes)
             cv2.imwrite(os.path.join(self.__output_dir,os.path.basename(image_path)),frame)
-        print("FPS: {:.04f}".format(len(self.__file_list)/self.__evalter.inference_time))
+        print("FPS: {:.04f}".format(1000*len(self.__file_dict.keys())/self.__evalter.inference_time))
         
     def get_first_10_imgs(self):
         fh = open(self.__label_path)
-        image_paths = []
-        for line in fh.readlines():
+        image_paths = {}
+        random.seed(1)
+        lines = random.choices(fh.readlines(),k=10)
+
+        for line in lines:
             line = line.rstrip().split()
-            if len(image_paths) < 100:
-                if len(line) > 1:
-                    image_paths.append(os.path.join("/data",line[0]))
+            if len(line)>1:
+                image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
             else:
                 break
-        print(image_paths)
-        self.__file_list =  image_paths
+        ####################################
+        # for on demand plot
+        # lines = fh.readlines()
+        # imgs = ["images/0021023.png",
+        #         "images/0020485.png",
+        #         "images/0021042.png",
+        #         "images/0021630.png",
+        #         "images/0021729.png",
+        #         "images/0021781.png"]
+        # for line in lines:
+        #     line = line.rstrip().split()
+        #     if line[0] in imgs:
+        #         image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
+        #####################################
+        self.__file_dict = image_paths
         
 
 if __name__ == "__main__":
