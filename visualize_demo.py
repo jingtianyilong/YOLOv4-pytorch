@@ -58,35 +58,39 @@ class Detection(object):
                 class_inds = bboxes_prd[..., 5].astype(np.int32)
                 scores = bboxes_prd[..., 4]
                 visualize_boxes(image=frame, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes)
-                visualize_boxes_and_labels_on_image_array(image=frame, boxes=self.__file_dict[image_path][:,:4], classes=self.__file_dict[image_path][:,4], scores=None, category_index=self.__classes)
+                visualize_boxes_and_labels_on_image_array(image=frame, boxes=self.__file_dict[image_path][:,:4], classes=self.__file_dict[image_path][:,4], scores=None, line_thickness=10, category_index=self.__classes)
             cv2.imwrite(os.path.join(self.__output_dir,os.path.basename(image_path)),frame)
         print("FPS: {:.04f}".format(1000*len(self.__file_dict.keys())/self.__evalter.inference_time))
         
     def get_first_10_imgs(self):
         fh = open(self.__label_path)
         image_paths = {}
-        random.seed(1)
-        lines = random.choices(fh.readlines(),k=10)
-
-        for line in lines:
-            line = line.rstrip().split()
-            if len(line)>1:
-                image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
-            else:
-                break
         ####################################
-        # for on demand plot
-        # lines = fh.readlines()
-        # imgs = ["images/0021023.png",
-        #         "images/0020485.png",
-        #         "images/0021042.png",
-        #         "images/0021630.png",
-        #         "images/0021729.png",
-        #         "images/0021781.png"]
+        # for random select
+        ####################################
+        # random.seed(1)
+        # lines = random.choices(fh.readlines(),k=10)
+
         # for line in lines:
         #     line = line.rstrip().split()
-        #     if line[0] in imgs:
+        #     if len(line)>1:
         #         image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
+        #     else:
+        #         break
+        ####################################
+        # for on demand plot
+        ####################################
+        lines = fh.readlines()
+        imgs = ["images/0021023.png",
+                "images/0020485.png",
+                "images/0021042.png",
+                "images/0021630.png",
+                "images/0021729.png",
+                "images/0021781.png"]
+        for line in lines:
+            line = line.rstrip().split()
+            if line[0] in imgs:
+                image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
         #####################################
         self.__file_dict = image_paths
         

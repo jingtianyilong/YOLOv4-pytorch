@@ -74,7 +74,7 @@ def visualize_boxes_and_labels_on_image_array(
     max_boxes_to_draw=100,
     min_score_thresh=.0,
     agnostic_mode=False,
-    line_thickness=6,
+    line_thickness=10,
     groundtruth_box_visualization_color=(0,255,0),
     skip_scores=False,
     skip_labels=False):
@@ -267,7 +267,7 @@ def draw_bounding_box_on_image(image,
   draw.line([(left, top), (left, bottom), (right, bottom),
              (right, top), (left, top)], width=thickness, fill=color)
   try:
-    font = ImageFont.truetype('/workspace/code/arial.ttf', 24)
+    font = ImageFont.truetype('/workspace/code/arial.ttf', size=50)
   except IOError:
     font = ImageFont.load_default()
   
