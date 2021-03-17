@@ -3,12 +3,14 @@ import cv2
 import random
 import numpy as np
 import pdb
+import torch.nn.functional as F
+
 
 class RandomHorizontalFilp(object):
     def __init__(self, p=0.5):
         self.p = p
 
-    def __call__(self, img, bboxes, img_path):
+    def __call__(self, img, bboxes):
         if random.random() < self.p:
             _, w_img, _ = img.shape
             img = img[:, ::-1, :]
@@ -16,6 +18,21 @@ class RandomHorizontalFilp(object):
             bboxes[:, [0, 2]] = w_img - bboxes[:, [2, 0]]
         return img, bboxes
 
+class RandomHSVAug(object):
+    def __init__(self, hue_jitter, bright_jitter, sat_jitter, p=0.5):
+        self.p = p
+        self.hue_jitter = hue_jitter
+        self.bright_jitter = bright_jitter
+        self.sat_jitter = sat_jitter
+        
+    def __call__(self,img):
+        if random.random() < self.p:
+            img = cv2.cvtColor(img,cv2.COLOR_BGR2HSV).astype(np.float32)
+            img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
+            img[:,:,1] *= random.uniform(1-self.sat_jitter, 1+self.sat_jitter)
+            img[:,:,2] *= random.uniform(1-self.bright_jitter, 1+self.bright_jitter)
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_HSV2BGR)
+        return img
 
 class RandomCrop(object):
     def __init__(self, p=0.5):
@@ -72,30 +89,29 @@ class Resize(object):
     Resize the image to target size and transforms it into a color channel(BGR->RGB),
     as well as pixel value normalization([0,1])
     """
-    def __init__(self, target_shape, correct_box=True):
-        self.h_target, self.w_target = target_shape
+    def __init__(self, correct_box=True):
         self.correct_box = correct_box
 
-    def __call__(self, img, bboxes):
+    def __call__(self, img, bboxes, target_shape):
         h_org , w_org , _= img.shape
+        h_target, w_target = target_shape
+        img = img.astype(np.float32)
 
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
-
-        resize_ratio = min(1.0 * self.w_target / w_org, 1.0 * self.h_target / h_org)
+        resize_ratio = min(1.0 * w_target / w_org, 1.0 * h_target / h_org)
         resize_w = int(resize_ratio * w_org)
         resize_h = int(resize_ratio * h_org)
         image_resized = cv2.resize(img, (resize_w, resize_h))
 
-        image_paded = np.full((self.h_target, self.w_target, 3), 128.0)
-        dw = int((self.w_target - resize_w) / 2)
-        dh = int((self.h_target - resize_h) / 2)
+        image_paded = np.full((h_target, w_target, 3), 128.0)
+        dw = int((w_target - resize_w) / 2)
+        dh = int((h_target - resize_h) / 2)
         image_paded[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
-        image = image_paded / 255.0  # normalize to [0, 1]
+        # image = image_paded / 255.0  # normalize to [0, 1]
 
         if self.correct_box:
             bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw
             bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
-            return image, bboxes
+            return image_paded, bboxes
         return image
 
 
@@ -125,7 +141,7 @@ class Mixup(object):
             
         return img, bboxes
 
-
+        
 class LabelSmooth(object):
     def __init__(self, delta=0.01):
         self.delta = delta
