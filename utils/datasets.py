@@ -91,9 +91,9 @@ class Build_Train_Dataset(Dataset):
             bboxes[:, [0,2]] += cx
             bboxes[:, [1,3]] += cy
 
-        # FILTER TO THROUGH OUT ALL SMALL BBOXES
-        filter_minbbox = (bboxes[:, 3] - bboxes[:, 1]) > self.bbox_minsize
-        bboxes = bboxes[filter_minbbox]
+        # # FILTER TO THROUGH OUT ALL SMALL BBOXES
+        # filter_minbbox = (bboxes[:, 3] - bboxes[:, 1]) > self.bbox_minsize
+        # bboxes = bboxes[filter_minbbox]
         return img, bboxes        
         
     def __get_mosaic(self,idx):
@@ -123,6 +123,7 @@ class Build_Train_Dataset(Dataset):
         assert item <= len(self), 'index range error'
 
         img, bboxes = self.__get_mosaic(item) if random.random() < 0.5 else self.__parse_annotation(self.__annotations[item])
+        if not bboxes.any(): img, bboxes = self.__parse_annotation(self.__annotations[item])
         img = img.transpose(2, 0, 1)  # HWC->CHW 
         # print(bboxes)
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
@@ -161,7 +162,6 @@ class Build_Train_Dataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
 
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-        
         img = img.astype(np.float32)
         
         # mosaic include mostly crop and moving. so no need for crop and affine transform here
@@ -174,7 +174,8 @@ class Build_Train_Dataset(Dataset):
         
         if random.random() < 0.5:
             img = img[:, ::-1, :]
-            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]] - 1
+            bboxes[:, [0, 2]] = img.shape[1] - 1 - bboxes[:, [2, 0]]
+
             
         resize_ratio = min(1.0 * self.img_size / img.shape[1], 1.0 * self.img_size / img.shape[0])
         resize_w = int(resize_ratio * img.shape[0])
@@ -191,6 +192,7 @@ class Build_Train_Dataset(Dataset):
         img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
         
         return img/255.0 , bboxes.clip(0,self.img_size-1)
+    
     def __creat_label(self, bboxes):
         """
         Label assignment. For a single picture all GT box bboxes are assigned anchor.
@@ -221,7 +223,8 @@ class Build_Train_Dataset(Dataset):
 
         bboxes_xywh = [np.zeros((90, 4)) for _ in range(3)]   # Darknet the max_num is 30
         bbox_count = np.zeros((3,))
-        # print(bboxes)
+        if len(bboxes)<1:
+            print(bboxes)
         for bbox in bboxes:
             bbox_coor = bbox[:4]
             bbox_class_ind = int(bbox[4])
@@ -247,7 +250,7 @@ class Build_Train_Dataset(Dataset):
 
                 iou_scale = tools.iou_xywh_numpy(bbox_xywh_scaled[i][np.newaxis, :], anchors_xywh)
                 iou.append(iou_scale)
-                iou_mask = iou_scale > 0.3
+                iou_mask = iou_scale > 0.213
 
                 if np.any(iou_mask):
                     xind, yind = np.floor(bbox_xywh_scaled[i, 0:2]).astype(np.int32)
@@ -338,7 +341,7 @@ if __name__ == "__main__":
     import sys
     anno_file = sys.argv[1]
     
-    yolo_dataset = Build_Train_Dataset(anno_file,anno_file_type="train", img_size=608)
+    yolo_dataset = Build_Train_Dataset(anno_file, anno_file_type="train", img_size=608)
     dataloader = DataLoader(yolo_dataset, shuffle=True, batch_size=4, num_workers=0)
 
     for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(dataloader):

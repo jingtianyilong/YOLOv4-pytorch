@@ -38,12 +38,16 @@ class Yolo_head(nn.Module):
         grid_xy = torch.stack([x, y], dim=-1)
         grid_xy = grid_xy.unsqueeze(0).unsqueeze(3).repeat(batch_size, 1, 1, 3, 1).float().to(device)
 
+        # pred_xy = (torch.sigmoid(conv_raw_dxdy) + grid_xy) * stride
+        # pred_wh = (torch.exp(conv_raw_dwdh) * anchors) * stride
+        # pred_xywh = torch.cat([pred_xy, pred_wh], dim=-1)
+        # pred_conf = torch.sigmoid(conv_raw_conf)
+        # pred_prob = torch.sigmoid(conv_raw_prob)
+        # pred_bbox = torch.cat([pred_xywh, pred_conf, pred_prob], dim=-1)
         pred_xy = (torch.sigmoid(conv_raw_dxdy) + grid_xy) * stride
         pred_wh = (torch.exp(conv_raw_dwdh) * anchors) * stride
         pred_xywh = torch.cat([pred_xy, pred_wh], dim=-1)
-        pred_conf = torch.sigmoid(conv_raw_conf)
-        pred_prob = torch.sigmoid(conv_raw_prob)
-        pred_bbox = torch.cat([pred_xywh, pred_conf, pred_prob], dim=-1)
+        pred_bbox = torch.cat([pred_xywh, conv_raw_conf, conv_raw_prob], dim=-1)
         # pred_bbox = torch.cat([pred_xywh, conv_raw_conf, conv_raw_prob], dim=-1)
 
 

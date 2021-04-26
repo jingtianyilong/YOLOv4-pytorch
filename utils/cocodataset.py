@@ -71,8 +71,10 @@ class COCODataset(Dataset):
 
         # load image and preprocess
         img_file = os.path.join(self.cfg.DATA_PATH, "images",
-                                '{:07d}.png'.format(id_))
+                                '{:012d}.jpg'.format(id_))
         img = cv2.imread(img_file)
+        assert img is not None
+        
         img, info_img = preprocess(img, self.img_size, jitter=0,
                                    random_placing=0)
         img = np.transpose(img / 255., (2, 0, 1))
