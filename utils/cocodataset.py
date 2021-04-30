@@ -71,7 +71,7 @@ class COCODataset(Dataset):
 
         # load image and preprocess
         img_file = os.path.join(self.cfg.DATA_PATH, "images",
-                                '{:012d}.jpg'.format(id_))
+                                '{:07d}.png'.format(id_))
         img = cv2.imread(img_file)
         assert img is not None
         

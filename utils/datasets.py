@@ -12,6 +12,7 @@ import random
 import torchvision.transforms as transforms
 import utils.data_augment as dataAug
 import utils.tools as tools
+import utils.visualize as vistool
 
 def get_image_id(filename):
     return int(os.path.basename(filename).split(".")[0])
@@ -124,6 +125,8 @@ class Build_Train_Dataset(Dataset):
 
         img, bboxes = self.__get_mosaic(item) if random.random() < 0.5 else self.__parse_annotation(self.__annotations[item])
         if not bboxes.any(): img, bboxes = self.__parse_annotation(self.__annotations[item])
+        cv2.imwrite("/workspace/code/example.png",img*255)
+
         img = img.transpose(2, 0, 1)  # HWC->CHW 
         # print(bboxes)
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
@@ -174,12 +177,11 @@ class Build_Train_Dataset(Dataset):
         
         if random.random() < 0.5:
             img = img[:, ::-1, :]
-            bboxes[:, [0, 2]] = img.shape[1] - 1 - bboxes[:, [2, 0]]
-
+            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]]
             
         resize_ratio = min(1.0 * self.img_size / img.shape[1], 1.0 * self.img_size / img.shape[0])
-        resize_w = int(resize_ratio * img.shape[0])
-        resize_h = int(resize_ratio * img.shape[1])
+        resize_w = int(resize_ratio * img.shape[1])
+        resize_h = int(resize_ratio * img.shape[0])
         image_resized = cv2.resize(img, (resize_w, resize_h))
 
         img = np.full((self.img_size, self.img_size, 3), 128.0)
@@ -187,7 +189,7 @@ class Build_Train_Dataset(Dataset):
         dh = int((self.img_size - resize_h) / 2)
         img[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
 
-        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw   
         bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
         img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
         
