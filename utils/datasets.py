@@ -96,7 +96,7 @@ class Build_Train_Dataset(Dataset):
         # filter_minbbox = (bboxes[:, 3] - bboxes[:, 1]) > self.bbox_minsize
         # bboxes = bboxes[filter_minbbox]
         return img, bboxes        
-        
+
     def __get_mosaic(self,idx):
         
         mosaic_img = np.zeros((self.img_size,self.img_size,3))
@@ -104,12 +104,13 @@ class Build_Train_Dataset(Dataset):
         cross_x = int(random.uniform(self.img_size * self.cross_offset, self.img_size * (1 - self.cross_offset)))
         cross_y = int(random.uniform(self.img_size * self.cross_offset, self.img_size * (1 - self.cross_offset)))
         
-        raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[idx])
+        raw_frag_img, raw_frag_bboxes = self.__parse_frag_annotation(self.__annotations[idx])
         frag_img, frag_bboxes = self.__get_frag(0, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
+        mosaic_img[0:cross_y, 0:cross_x, :] = frag_img
         bboxes = frag_bboxes
         for i in range(1, 4):
             frag_idx = random.randint(0, len(self.__annotations)-1)
-            raw_frag_img, raw_frag_bboxes = self.__parse_annotation(self.__annotations[frag_idx])
+            raw_frag_img, raw_frag_bboxes = self.__parse_frag_annotation(self.__annotations[frag_idx])
             frag_img, frag_bboxes = self.__get_frag(i, cross_x, cross_y, raw_frag_img, raw_frag_bboxes)
             if i==1:
                 mosaic_img[0:cross_y, cross_x:, :] = frag_img
@@ -125,7 +126,7 @@ class Build_Train_Dataset(Dataset):
 
         img, bboxes = self.__get_mosaic(item) if random.random() < 0.5 else self.__parse_annotation(self.__annotations[item])
         if not bboxes.any(): img, bboxes = self.__parse_annotation(self.__annotations[item])
-        cv2.imwrite("/workspace/code/example.png",img*255)
+        # cv2.imwrite("/workspace/code/example.png",img*255)
 
         img = img.transpose(2, 0, 1)  # HWC->CHW 
         # print(bboxes)
@@ -152,6 +153,102 @@ class Build_Train_Dataset(Dataset):
         return annotations
 
     def __parse_annotation(self, annotation):
+
+        anno = annotation.strip().split(' ')
+
+        img_path = os.path.join(cfg.DATA_PATH, anno[0])
+        img = cv2.imread(img_path)  # H*W*C and C=BGR
+        assert img is not None, 'File Not Found ' + img_path
+
+        bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
+        img = img.astype(np.float32)
+        
+        # mosaic include mostly crop and moving. so no need for crop and affine transform here
+        if random.random() < 0.5:
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2HSV).astype(np.float32)
+            img[:,:,0] *= random.uniform(1-self.hue_jitter, 1+self.hue_jitter)
+            img[:,:,1] *= random.uniform(1-self.sat_jitter, 1+self.sat_jitter)
+            img[:,:,2] *= random.uniform(1-self.bright_jitter, 1+self.bright_jitter)
+            img = cv2.cvtColor(np.uint8(img),cv2.COLOR_HSV2BGR)
+        
+        if random.random() < 0.5:
+            img = img[:, ::-1, :]
+            bboxes[:, [0, 2]] = img.shape[1] - bboxes[:, [2, 0]]
+
+        if random.random() < 0.5:
+            h_img, w_img, _ = img.shape
+
+            max_bbox = np.concatenate(
+                [
+                    np.min(bboxes[:, 0:2], axis=0),
+                    np.max(bboxes[:, 2:4], axis=0),
+                ],
+                axis=-1,
+            )
+            max_l_trans = max_bbox[0]
+            max_u_trans = max_bbox[1]
+            max_r_trans = w_img - max_bbox[2]
+            max_d_trans = h_img - max_bbox[3]
+
+            crop_xmin = max(
+                0, int(max_bbox[0] - random.uniform(0, max_l_trans))
+            )
+            crop_ymin = max(
+                0, int(max_bbox[1] - random.uniform(0, max_u_trans))
+            )
+            crop_xmax = max(
+                w_img, int(max_bbox[2] + random.uniform(0, max_r_trans))
+            )
+            crop_ymax = max(
+                h_img, int(max_bbox[3] + random.uniform(0, max_d_trans))
+            )
+
+            img = img[crop_ymin:crop_ymax, crop_xmin:crop_xmax]
+
+            bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
+            bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin    
+
+        if random.random() < 0.5:
+            h_img, w_img, _ = img.shape
+            # 得到可以包含所有bbox的最大bbox
+            max_bbox = np.concatenate(
+                [
+                    np.min(bboxes[:, 0:2], axis=0),
+                    np.max(bboxes[:, 2:4], axis=0),
+                ],
+                axis=-1,
+            )
+            max_l_trans = max_bbox[0]
+            max_u_trans = max_bbox[1]
+            max_r_trans = w_img - max_bbox[2]
+            max_d_trans = h_img - max_bbox[3]
+
+            tx = random.uniform(-(max_l_trans - 1), (max_r_trans - 1))
+            ty = random.uniform(-(max_u_trans - 1), (max_d_trans - 1))
+
+            M = np.array([[1, 0, tx], [0, 1, ty]])
+            img = cv2.warpAffine(img, M, (w_img, h_img))
+
+            bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
+            bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
+
+        resize_ratio = min(1.0 * self.img_size / img.shape[1], 1.0 * self.img_size / img.shape[0])
+        resize_w = int(resize_ratio * img.shape[1])
+        resize_h = int(resize_ratio * img.shape[0])
+        image_resized = cv2.resize(img, (resize_w, resize_h))
+
+        img = np.full((self.img_size, self.img_size, 3), 128.0)
+        dw = int((self.img_size - resize_w) / 2)
+        dh = int((self.img_size - resize_h) / 2)
+        img[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
+
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw   
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
+        img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
+        
+        return img/255.0 , bboxes.clip(0,self.img_size-1)
+
+    def __parse_frag_annotation(self, annotation):
         """
         Data augument.
         :param annotation: Image' path and bboxes' coordinates, categories.
@@ -184,14 +281,10 @@ class Build_Train_Dataset(Dataset):
         resize_h = int(resize_ratio * img.shape[0])
         image_resized = cv2.resize(img, (resize_w, resize_h))
 
-        img = np.full((self.img_size, self.img_size, 3), 128.0)
-        dw = int((self.img_size - resize_w) / 2)
-        dh = int((self.img_size - resize_h) / 2)
-        img[dh:resize_h + dh, dw:resize_w + dw, :] = image_resized
 
-        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio + dw   
-        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio + dh
-        img = cv2.cvtColor(np.uint8(img),cv2.COLOR_BGR2RGB)
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * resize_ratio   
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * resize_ratio
+        img = cv2.cvtColor(np.uint8(image_resized),cv2.COLOR_BGR2RGB)
         
         return img/255.0 , bboxes.clip(0,self.img_size-1)
     
