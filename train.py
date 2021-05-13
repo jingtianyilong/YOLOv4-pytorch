@@ -33,11 +33,14 @@ def detection_collate(batch):
 
 
 class Trainer(object):
+    _resume = False
+    _fine_tune = False
     def __init__(self, log_dir, resume=False, fine_tune=False):
         init_seeds(0)
-        if fine_tune:
+        self._fine_tune = fine_tune
+        self._resume = resume
+        if self._fine_tune:
             self.__prepare_fine_tune()
-        self.fp_16 = cfg.FP16
         self.device = gpu.select_device()
         self.start_epoch = 0
         self.best_mAP = 0.
@@ -72,7 +75,7 @@ class Trainer(object):
                                                           lr_min=cfg.TRAIN.LR_END,
                                                           warmup=cfg.TRAIN.WARMUP_EPOCHS*len(self.train_dataloader))
         if resume: self.__load_resume_weights()
-        if fine_tune: self.__load_best_weights()
+        if self._fine_tune: self.__load_best_weights()
         
     def __prepare_fine_tune(self):
         cfg.defrost()
@@ -123,8 +126,8 @@ class Trainer(object):
         if self.best_mAP == mAP:
             torch.save(chkpt['model'], best_weight)
 
-        # if epoch > 0 and epoch % 10 == 0:
-        #     torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
+        if self._fine_tune and epoch % 5 == 0:
+            torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch_{:02d}}.pt'.format(epoch)))
         del chkpt
 
     def train(self):
@@ -133,13 +136,11 @@ class Trainer(object):
         logger.info(self.yolov4)
         n_train = len(self.train_dataset)
         n_step = n_train // (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE) + 1
-        n_remainder = n_train % (cfg.TRAIN.BATCH_SIZE//cfg.TRAIN.ACCUMULATE)
         logger.info("Train datasets number is : {}".format(n_train))
         evaluator = COCOAPIEvaluator(cfg=cfg,
                     img_size=cfg.VAL.TEST_IMG_SIZE,
                     confthre=cfg.VAL.CONF_THRESH,
                     nmsthre=cfg.VAL.NMS_THRESH)
-        # if self.fp_16: self.yolov4, self.optimizer = amp.initialize(self.yolov4, self.optimizer, opt_level='O1', verbosity=0)
 
         if torch.cuda.device_count() > 1: self.yolov4 = torch.nn.DataParallel(self.yolov4)
         logger.info("\n===============  start  training   ===============")
