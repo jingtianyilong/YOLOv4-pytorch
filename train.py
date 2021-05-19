@@ -34,8 +34,10 @@ def detection_collate(batch):
 
 
 class Trainer(object):
+    _fine_tune = False
     def __init__(self, log_dir, resume=False, fine_tune=False):
         init_seeds(0)
+        self._fine_tune = fine_tune
         if fine_tune:
             self.__prepare_fine_tune()
         self.fp_16 = cfg.FP16
@@ -124,8 +126,8 @@ class Trainer(object):
         if self.best_mAP == mAP:
             torch.save(chkpt['model'], best_weight)
 
-        # if epoch > 0 and epoch % 10 == 0:
-        #     torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch%g.pt'%epoch))
+        if self._fine_tune and epoch % 5 == 0:
+            torch.save(chkpt['model'], os.path.join(log_dir,"checkpoints", 'backup_fine_tune_epoch_{:02d}.pt'.format(epoch)))
         del chkpt
 
     def train(self):
