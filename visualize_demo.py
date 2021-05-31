@@ -68,29 +68,29 @@ class Detection(object):
         ####################################
         # for random select
         ####################################
-        # random.seed(1)
-        # lines = random.choices(fh.readlines(),k=10)
+        random.seed(10)
+        lines = random.choices(fh.readlines(),k=500)
 
-        # for line in lines:
-        #     line = line.rstrip().split()
-        #     if len(line)>1:
-        #         image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
-        #     else:
-        #         break
+        for line in lines:
+            line = line.rstrip().split()
+            if len(line)>1:
+                image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
+            else:
+                break
         ####################################
         # for on demand plot
         ####################################
-        lines = fh.readlines()
-        imgs = ["images/0021023.png",
-                "images/0020485.png",
-                "images/0021042.png",
-                "images/0021630.png",
-                "images/0021729.png",
-                "images/0021781.png"]
-        for line in lines:
-            line = line.rstrip().split()
-            if line[0] in imgs:
-                image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
+        # lines = fh.readlines()
+        # imgs = ["images/0025590.png",
+        #         "images/0026100.png",
+        #         "images/0026306.png",
+        #         "images/0027764.png",
+        #         "images/0024249.png",
+        #         "images/0024050.png"]
+        # for line in lines:
+        #     line = line.rstrip().split()
+        #     if line[0] in imgs:
+        #         image_paths[os.path.join("/data",line[0])] = np.array([list(map(int,i.split(","))) for i in line[1:]])
         #####################################
         self.__file_dict = image_paths
         
@@ -105,8 +105,8 @@ if __name__ == "__main__":
     output_dir = os.path.join(log_dir, "demo")
     os.makedirs(output_dir, exist_ok=True)
     weight_path = os.path.join(log_dir,"checkpoints","best.pt")
-    
-    Detection(label_path=cfg.VAL.ANNO_FILE,
+    Detection(label_path="ECP_test_no_empty.txt",
+    # Detection(label_path=cfg.VAL.ANNO_FILE,
               weight_path=weight_path,
               output_dir=output_dir).detect_demo()
 

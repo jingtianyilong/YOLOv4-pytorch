@@ -61,7 +61,7 @@ class LAMR_Tester(object):
         del chkpt
 
     def test_series(self):
-        for epoch in range(0,50,5):
+        for epoch in range(0,50):
             weight_path = os.path.join(log_dir,"checkpoints", "backup_fine_tune_epoch_{:02d}.pt".format(epoch))
             self.results_path = os.path.join("/data","mock_detections",os.path.basename(self.log_dir),"epoch_{:02d}".format(epoch),"day","val")
             self.__load_weights(weight_path)
