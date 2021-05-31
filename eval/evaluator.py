@@ -104,7 +104,8 @@ class Evaluator(object):
         imshowAtt(beta, img)
 
     def __get_img_tensor(self, img, test_shape):
-        img = Resize((test_shape, test_shape), correct_box=False)(img, None).transpose(2, 0, 1)
+        # print(img.shape, test_shape)
+        img = Resize(correct_box=False)(img, None,(test_shape, test_shape)).transpose(2, 0, 1)
         return torch.from_numpy(img[np.newaxis, ...]).float()
 
 

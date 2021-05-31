@@ -127,7 +127,7 @@ class Trainer(object):
             torch.save(chkpt['model'], best_weight)
 
         if self._fine_tune and epoch % 5 == 0:
-            torch.save(chkpt, os.path.join(log_dir,"checkpoints", 'backup_epoch_{:02d}}.pt'.format(epoch)))
+            torch.save(chkpt['model'], os.path.join(log_dir,"checkpoints", 'backup_fine_tune_epoch_{:02d}.pt'.format(epoch)))
         del chkpt
 
     def train(self):
